@@ -94,7 +94,7 @@ python3 webvulnscanner_tui.py
 
 La TUI guarda historial en ~/.webvulnscanner_history.json.
 
-#Probar la herramienta en entornos seguros (laboratorios locales)
+# Probar la herramienta en entornos seguros (laboratorios locales)
 
 Opción A — OWASP Juice Shop (Docker)
 
