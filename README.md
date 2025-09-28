@@ -24,11 +24,11 @@ Docker (opcional, para pruebas en laboratorios locales).
 
 # Preparar el entorno (recomendado):
 
-# crear virtualenv (opcional pero recomendado)
+crear virtualenv (opcional pero recomendado)
 python3 -m venv venv
 source venv/bin/activate
 
-# instalar dependencias básicas
+instalar dependencias básicas
 python3 -m pip install --upgrade pip
 python3 -m pip install requests beautifulsoup4
 
