@@ -1,20 +1,41 @@
 # WebVulnScanner
-Scanner for search Web vulnerabilities 
 
-Menú interactivo para configurar objetivo, checks, crawling, wordlist y opciones intrusivas.
+Herramienta principal: webvulnscanner_ext.py (CLI).
 
-Ejecuta run_checks del webvulnscanner_ext en un hilo de fondo y muestra logs en pantalla.
+Interfaz TUI: webvulnscanner_tui.py (terminal, Linux).
 
-Permite ver y guardar el reporte JSON desde la TUI.
+Instalación opcional como comandos: webvulnscanner y webvulnscanner-tui (vía setup.py).
 
-No requiere dependencias externas adicionales (usa curses que viene en la mayoría de distribuciones Linux).
+Seguridad: las pruebas intrusivas requieren flags --allow-intrusive y --authorized. Úsalo sólo en sistemas autorizados.
 
-Instrucciones rápidas para probarlo:
+# Requisitos previos (Linux):
 
-Colocar webvulnscanner_ext.py y webvulnscanner_tui.py en la misma carpeta.
+Python 3.8+ (recomendado 3.8–3.11).
 
-Instalar dependencias del scanner: pip install requests beautifulsoup4
+pip y virtualenv (recomendado).
 
-Ejecutar: python3 webvulnscanner_tui.py
+(Opcional) sqlmap si quieres integración con sqlmap.
 
-Desde la UI, definir target, configurar y presionar R para lanzar el escaneo.
+(Opcional) msfrpcd corriendo si vas a usar Metasploit (para la UI que integra MSF).
+
+Para la TUI: una terminal compatible con curses (Linux / WSL2 con terminal moderno).
+
+Docker (opcional, para pruebas en laboratorios locales).
+
+# Preparar el entorno (recomendado):
+
+# crear virtualenv (opcional pero recomendado)
+python3 -m venv venv
+source venv/bin/activate
+
+# instalar dependencias básicas
+python3 -m pip install --upgrade pip
+python3 -m pip install requests beautifulsoup4
+
+Coloca estos archivos en la misma carpeta:
+
+webvulnscanner_ext.py
+
+webvulnscanner_tui.py
+
+setup.py (opcional, para instalar comandos)
