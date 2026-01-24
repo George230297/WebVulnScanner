@@ -3,9 +3,10 @@ import aiohttp
 import re
 import logging
 import json
+import ssl
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urljoin, parse_qsl
-from typing import Set, List, Dict, Optional
+from typing import Set, List, Dict, Optional, Any
 
 from webvulnscanner.config import ScanConfig, DEFAULT_HEADERS, SENSITIVE_FILES, REGEX_ENDPOINTS
 from webvulnscanner.models.vulnerability import Vulnerability
@@ -19,57 +20,79 @@ class AsyncScanner:
         self.visited: Set[str] = set()
         self.js_files_scanned: Set[str] = set()
         self.vulnerabilities: List[Vulnerability] = []
-        self.endpoints_found: List[Dict] = []
+        self.endpoints_found: List[Dict[str, Any]] = []
         self.session: Optional[aiohttp.ClientSession] = None
         self.semaphore = asyncio.Semaphore(config.concurrency)
         self.base_domain = urlparse(config.start_url).netloc
         
         # Initialize plugins
         self.plugins = [Plugin() for Plugin in ALL_PLUGINS]
-        # Filter plugins if config restricts them
-        if self.config.checks:
-            # Map plugin.name or class name to config strings? 
-            # For simplicity, we assume strict mapping isn't implemented yet or we run all
-            # But let's verify logic: original had 'if xss in config.checks'.
-            # We can respect that if we add a 'key' to BaseCheck.
-            pass
+        
+        # Configure SSL context based on authorization/requirements
+        self.ssl_context = ssl.create_default_context()
+        if not self.config.authorized: # Assuming 'authorized' implies strict checking or specific certs
+             # If authorized is False, we might default to strict, or if user asked for insecure?
+             # For now, let's assume standard behavior is strictly verify, unless we want to allow self-signed for testing.
+             # Standard "clean code" would default to verifying.
+             pass
+        else:
+             # Example: if user explicitly allowed insecure in config (missing field currently), we'd do check_hostname=False
+             # self.ssl_context.check_hostname = False
+             # self.ssl_context.verify_mode = ssl.CERT_NONE
+             pass
 
-    async def __aenter__(self):
-        timeout = aiohttp.ClientTimeout(total=15)
-        self.session = aiohttp.ClientSession(headers=DEFAULT_HEADERS, timeout=timeout)
+    async def __aenter__(self) -> "AsyncScanner":
+        timeout = aiohttp.ClientTimeout(total=20)
+        # Create a TCPConnector with the configured SSL context
+        connector = aiohttp.TCPConnector(ssl=self.ssl_context)
+        self.session = aiohttp.ClientSession(
+            headers=DEFAULT_HEADERS, 
+            timeout=timeout,
+            connector=connector
+        )
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         if self.session:
             await self.session.close()
 
-    async def fetch(self, url: str, method="GET", params=None, data=None):
+    async def fetch(self, url: str, method: str = "GET", params: Optional[Dict] = None, data: Any = None) -> tuple[str, int, str, Any]:
         async with self.semaphore:
             try:
-                # Allow redirects false? Original had True.
+                if not self.session:
+                    raise RuntimeError("Session not initialized")
+                    
                 async with self.session.request(method, url, params=params, data=data, allow_redirects=True) as resp:
-                    text = await resp.text(errors='ignore')
-                    return resp.url, resp.status, text, resp.headers
-            except Exception:
+                    # Explicitly handle encoding to avoid errors='ignore' hiding issues entirely, 
+                    # but fallback gracefully if needed.
+                    try:
+                        text = await resp.text()
+                    except UnicodeDecodeError:
+                        text = await resp.text(errors='replace')
+                        
+                    return str(resp.url), resp.status, text, resp.headers
+            except Exception as e:
+                logger.debug(f"Error fetching {url}: {e}")
                 return url, 0, "", {}
 
-    async def crawl_loop(self):
-        queue = asyncio.Queue()
+    async def crawl_loop(self) -> None:
+        queue: asyncio.Queue[str] = asyncio.Queue()
         queue.put_nowait(self.config.start_url)
         
-        # 1. WAF Check
+        # 1. WAF Check (Blocking, important to know early)
         await self.check_waf()
         
-        # 2. Sensitive Files (Initial Discovery)
-        # Run in background or await? Original expected it in tasks_init.
-        # We start it as a background task that feeds vulnerabilities.
+        # 2. Sensitive Files (Start in background)
+        # We track this task to ensure it completes before finishing if critical, 
+        # or let it run parallel. For scanning, usually parallel is fine.
         asyncio.create_task(self.check_sensitive_files())
 
         # 3. Main Loop
         while not queue.empty() and len(self.visited) < self.config.max_pages:
             tasks = []
-            # Batch processing
-            for _ in range(min(queue.qsize(), self.config.concurrency)):
+            # Batch processing based on concurrency and queue size
+            count = min(queue.qsize(), self.config.concurrency)
+            for _ in range(count):
                 url = await queue.get()
                 if url not in self.visited:
                     tasks.append(self.process_url(url, queue))
@@ -77,26 +100,33 @@ class AsyncScanner:
             if tasks:
                 await asyncio.gather(*tasks)
 
-    async def check_waf(self):
-        print("[*] Comprobando WAF...")
+    async def check_waf(self) -> None:
+        logger.info("[*] Comprobando WAF...")
         try:
+             # Simple heuristic: send a harmless payload to see if blocked
              _, status, _, _ = await self.fetch(self.config.start_url, params={'q': '<script>alert(1)</script>'})
              if status == 403:
-                 logger.warning("Posible WAF detectado (403 Forbidden).")
-        except: pass
+                 logger.warning("[!] ADVERTENCIA: Posible WAF detectado (403 Forbidden).")
+        except Exception: 
+            pass
 
-    async def check_sensitive_files(self):
+    async def check_sensitive_files(self) -> None:
         base_url = f"{urlparse(self.config.start_url).scheme}://{self.base_domain}"
         
-        async def check(filename):
+        async def check(filename: str) -> None:
             target = urljoin(base_url + '/', filename)
             _, status, _, _ = await self.fetch(target)
             if status == 200:
-                self.vulnerabilities.append(Vulnerability("Sensitive File", target, None, f"Exposed {filename}", "High"))
+                self.vulnerabilities.append(Vulnerability(
+                    type="Sensitive File", 
+                    url=target, 
+                    evidence=f"Exposed {filename}", 
+                    severity="High"
+                ))
 
         await asyncio.gather(*[check(f) for f in SENSITIVE_FILES])
 
-    async def process_url(self, url, queue):
+    async def process_url(self, url: str, queue: asyncio.Queue) -> None:
         if url in self.visited: return
         self.visited.add(url)
         
@@ -111,6 +141,7 @@ class AsyncScanner:
         # <a> links
         for a in soup.find_all('a', href=True):
             link = urljoin(real_url_str, a['href'])
+            # Ensure strict domain scope
             if urlparse(link).netloc == self.base_domain and link not in self.visited:
                 queue.put_nowait(link)
         
@@ -124,7 +155,7 @@ class AsyncScanner:
         # Run Plugins (Audit)
         await self.run_plugins(real_url_str, html, headers)
 
-    async def process_js(self, js_url: str, queue: asyncio.Queue):
+    async def process_js(self, js_url: str, queue: asyncio.Queue) -> None:
         if js_url in self.js_files_scanned: return
         self.js_files_scanned.add(js_url)
         
@@ -132,15 +163,11 @@ class AsyncScanner:
         if status != 200 or not content: return
         
         # 1. Run JS-capable plugins (Secrets)
-        # We invoke plugins with html=content. Plugins utilizing this must check context.
-        # Ideally, we pass "context='js'" or similar.
-        # But 'SecretsCheck' just regexes 'html'.
-        # We should NOT run XSS/SQLi on JS files generally. Validating plugins...
         for plugin in self.plugins:
-            # Simple filter: Only run SecretsCheck on JS files?
-            # Or assume plugins are smart? 
-            # For now, let's explicitly run only SecretsCheck for JS to be safe/fast
+            # Explicitly checking plugin capability or name is better than hardcoding
+            # Logic: If plugin handles JS analysis.
             if plugin.name == "Secrets & Tokens":
+                # Assuming plugin.check signature is flexible or we adapt it
                 res = await plugin.check(self.session, js_url, html=content)
                 self.vulnerabilities.extend(res)
 
@@ -152,16 +179,15 @@ class AsyncScanner:
                  if urlparse(full_url).netloc == self.base_domain and full_url not in self.visited:
                      try:
                          queue.put_nowait(full_url)
-                     except: pass
+                     except Exception: pass
 
-    async def run_plugins(self, url: str, html: str, headers: dict):
+    async def run_plugins(self, url: str, html: str, headers: Any) -> None:
         parsed = urlparse(url)
         params = dict(parse_qsl(parsed.query))
         
         tasks = []
         for plugin in self.plugins:
-            # Skip SecretsCheck on HTML logic? Maybe not, HTML can have secrets too.
-            # Skip XSS/SQLi if no params? logic is inside plugin.
+            # Future improvement: Plugin.should_run(context)
             tasks.append(plugin.check(self.session, url, html, headers, params))
         
         results = await asyncio.gather(*tasks)

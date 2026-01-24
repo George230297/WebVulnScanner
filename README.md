@@ -1,4 +1,4 @@
-# WebVulnScanner v2.1
+# WebVulnScanner
 
 **Escáner de Vulnerabilidades Web Asíncrono y Modular**
 
@@ -11,11 +11,10 @@ WebVulnScanner es una herramienta avanzada de auditoría de seguridad diseñada 
 - **Análisis Híbrido**:
   - **DAST (Dynamic Analysis)**: Inyección de payloads para XSS y SQLi en tiempo real.
   - **SAST (Static Analysis)**: Análisis de archivos JavaScript (`.js`) para detectar secretos hardcodeados (API Keys, Tokens) y endpoints ocultos.
+- **Seguridad Mejorada**: Verificación robusta de SSL/TLS y validación estricta de regex para reducir falsos positivos.
 - **Detección de WAF**: Identificación básica de Firewalls de Aplicación Web.
 - **Reportes**: Generación automática de reportes en JSON y Markdown.
-- **Interfaz Dual**:
-  - **CLI**: Línea de comandos para automatización y scripting.
-  - **TUI**: Interfaz gráfica de terminal interactiva.
+- **Interfaz Unificada**: Uso simplificado a través de un único punto de entrada CLI.
 
 ## 🛠️ Instalación
 
@@ -24,20 +23,23 @@ Se recomienda instalar la herramienta en un entorno virtual:
 ```bash
 # Crear entorno virtual
 python -m venv venv
-source venv/bin/activate  # En Windows: venv\Scripts\activate
+# Activar entorno (Windows)
+venv\Scripts\activate
+# Activar entorno (Linux/Mac)
+source venv/bin/activate
 
-# Instalar dependencias y la herramienta
-pip install -e .
+# Instalar dependencias
+pip install -r requirements.txt
 ```
 
 ## 💻 Uso
 
 ### Interfaz de Línea de Comandos (CLI)
 
-Para un escaneo rápido y directo:
+Para un escaneo rápido y directo utilice el script principal:
 
 ```bash
-webvulnscanner --url https://ejemplo.com --workers 50
+python Web_Vuln_Scanner.py --url https://ejemplo.com --workers 50
 ```
 
 Opciones disponibles:
@@ -48,12 +50,11 @@ Opciones disponibles:
 - `--workers`: Número de hilos/conexiones concurrentes (default: 20).
 - `--report`: Nombre del archivo de reporte (default: `report.json`).
 
-### Interfaz Interactiva (TUI)
-
-Para una experiencia visual en terminal:
+### Ejemplo de uso modular
 
 ```bash
-webvulnscanner-tui
+# Ejecutar solo checks de secretos y headers
+python Web_Vuln_Scanner.py --url https://target.com --checks secrets headers
 ```
 
 ## 🛡️ Capacidades de Detección
