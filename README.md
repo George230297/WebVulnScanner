@@ -39,7 +39,7 @@ pip install -r requirements.txt
 Para un escaneo rápido y directo utilice el script principal:
 
 ```bash
-python Web_Vuln_Scanner.py --url https://ejemplo.com --workers 50
+python run_scanner.py --url https://ejemplo.com --workers 50
 ```
 
 Opciones disponibles:
@@ -54,8 +54,21 @@ Opciones disponibles:
 
 ```bash
 # Ejecutar solo checks de secretos y headers
-python Web_Vuln_Scanner.py --url https://target.com --checks secrets headers
+python run_scanner.py --url https://target.com --checks secrets headers
 ```
+
+### 📋 Ayuda y Comandos
+
+A continuación se detalla la lista completa de argumentos disponibles y su función, tal como se obtiene al ejecutar `python run_scanner.py --help`:
+
+| Argumento           | Descripción                                                   | Requerido |    Default    |
+| :------------------ | :------------------------------------------------------------ | :-------: | :-----------: |
+| `-h`, `--help`      | Muestra el mensaje de ayuda y termina.                        |    No     |       -       |
+| `--url URL`         | URL objetivo para iniciar el escaneo.                         |  **Sí**   |       -       |
+| `--checks [CHECKS]` | Lista de chequeos específicos a ejecutar (ej: `xss`, `sqli`). |    No     |     `all`     |
+| `--max-pages N`     | Número máximo de páginas a visitar durante el crawling.       |    No     |     `50`      |
+| `--workers N`       | Número de hilos/conexiones concurrentes.                      |    No     |     `20`      |
+| `--report FILE`     | Nombre y ruta del archivo de reporte a generar.               |    No     | `report.json` |
 
 ## 🛡️ Capacidades de Detección
 
@@ -68,6 +81,15 @@ La versión actual incluye los siguientes módulos (plugins):
 5.  **Sensitive Files**: Detección de archivos expuestos (`.env`, `.git`, backups).
 6.  **CSRF**: Análisis heurístico de formularios sin tokens anti-CSRF.
 7.  **SSRF Candidates**: Identificación de parámetros sospechosos de Server-Side Request Forgery.
+
+## 📈 Mejoras Recientes (Refactoring)
+
+Se ha realizado una actualización completa del código base para alinearlo con las mejores prácticas de ingeniería de software:
+
+- **Estandarización**: Renombrado de archivos clave (`run_scanner.py`, `setup.py`) siguiendo convenciones PEP 8.
+- **Desacoplamiento del Motor**: Refactorización del núcleo (`engine.py`) para eliminar dependencias rígidas de plugins específicos, mejorando la extensibilidad.
+- **Categorización Automática**: Implementación de lógica inteligente en los modelos para clasificar vulnerabilidades automáticamente, simplificando la generación de reportes.
+- **Limpieza de Código**: Eliminación de "code smells", variables duplicadas y mejora en el manejo de tipos.
 
 ## ⚖️ Licencia
 

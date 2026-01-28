@@ -56,13 +56,8 @@ def main():
 def prepare_results(target, scanner):
     checks_data = defaultdict(list)
     for v in scanner.vulnerabilities:
-        # Categorize
-        if 'XSS' in v.type: key = 'xss'
-        elif 'SQL' in v.type: key = 'sqli'
-        elif 'Secret' in v.type: key = 'secrets'
-        elif 'CSRF' in v.type: key = 'csrf'
-        elif 'Header' in v.type: key = 'headers'
-        else: key = 'general'
+        # Use centralized category from model
+        key = v.category.lower() if v.category else 'general'
         
         checks_data[key].append({
             'type': v.type,

@@ -26,7 +26,7 @@ class AsyncScanner:
         self.base_domain = urlparse(config.start_url).netloc
         
         # Initialize plugins
-        self.plugins = [Plugin() for Plugin in ALL_PLUGINS]
+        self.plugins = [plugin_cls() for plugin_cls in ALL_PLUGINS]
         
         # Configure SSL context based on authorization/requirements
         self.ssl_context = ssl.create_default_context()
@@ -163,11 +163,16 @@ class AsyncScanner:
         if status != 200 or not content: return
         
         # 1. Run JS-capable plugins (Secrets)
+        # 1. Run JS-capable plugins (Secrets)
         for plugin in self.plugins:
-            # Explicitly checking plugin capability or name is better than hardcoding
-            # Logic: If plugin handles JS analysis.
-            if plugin.name == "Secrets & Tokens":
-                # Assuming plugin.check signature is flexible or we adapt it
+            # Check if plugin has a 'check_js' or similar method, or just try generic check if suited.
+            # Ideally, plugins should expose capabilities. 
+            # For this refactor, we check if the plugin has a method specifically for JS or secrets
+            if hasattr(plugin, 'check_js'):
+                 res = await plugin.check_js(self.session, js_url, html=content)
+                 if res:
+                    self.vulnerabilities.extend(res)
+            elif plugin.name == "Secrets & Tokens": # Fallback for legacy
                 res = await plugin.check(self.session, js_url, html=content)
                 self.vulnerabilities.extend(res)
 
