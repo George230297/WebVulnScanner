@@ -90,6 +90,10 @@ Se ha realizado una actualización completa del código base para alinearlo con 
 - **Desacoplamiento del Motor**: Refactorización del núcleo (`engine.py`) para eliminar dependencias rígidas de plugins específicos, mejorando la extensibilidad.
 - **Categorización Automática**: Implementación de lógica inteligente en los modelos para clasificar vulnerabilidades automáticamente, simplificando la generación de reportes.
 - **Limpieza de Código**: Eliminación de "code smells", variables duplicadas y mejora en el manejo de tipos.
+- **Arquitectura de Red Robusta**: Separación de la lógica de conexión mediante el patrón **Decorator**.
+  - **@audit_log**: Auditoría automática de todas las peticiones salientes en `audit.log`.
+  - **@retry_network**: Sistema de reintentos automáticos (x3) y tolerancia a fallos de red.
+- **Integración Profunda**: Los plugins (SQLi, XSS) ahora utilizan el nuevo núcleo de red `send_probe` para beneficiarse de la auditoría y resiliencia.
 
 ## ⚖️ Licencia
 

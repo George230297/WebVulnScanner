@@ -1,0 +1,1 @@
+[AUDIT] Request to http://example.com - FAILED: Cannot connect to host example.com:80 ssl:default [Could not contact DNS servers]

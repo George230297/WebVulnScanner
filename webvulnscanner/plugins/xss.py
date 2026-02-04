@@ -2,6 +2,7 @@ from typing import List
 from webvulnscanner.plugins.base import BaseCheck
 from webvulnscanner.models.vulnerability import Vulnerability
 from webvulnscanner.config import XSS_PAYLOADS
+from webvulnscanner.core.network import send_probe
 
 class XSSCheck(BaseCheck):
     name = "Reflected XSS"
@@ -14,23 +15,23 @@ class XSSCheck(BaseCheck):
         for k in params:
             for p in XSS_PAYLOADS:
                 # Construct query
+                # Construct query
                 p_mod = params.copy()
                 p_mod[k] = p
                 
                 try:
-                    async with session.get(url, params=p_mod) as resp:
-                        text = await resp.text(errors='ignore')
-                        if p in text:
-                            # Confirm XSS
-                            vulns.append(Vulnerability(
-                                type="Reflected XSS",
-                                url=str(resp.url),
-                                param=k,
-                                evidence=p,
-                                severity="High"
-                            ))
-                            # Break inner loop to avoid spamming same param
-                            break
+                    resp = await send_probe(url, method="GET", params=p_mod)
+                    if p in resp.text:
+                         # Confirm XSS
+                        vulns.append(Vulnerability(
+                            type="Reflected XSS",
+                            url=str(url),
+                            param=k,
+                            evidence=p,
+                            severity="High"
+                        ))
+                        # Break inner loop to avoid spamming same param
+                        break
                 except Exception:
                     pass
         
