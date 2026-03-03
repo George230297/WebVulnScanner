@@ -1,0 +1,11 @@
+{
+  "meta": {
+    "target": "http://testphp.vulnweb.com/listproducts.php?cat=1",
+    "scanner": "v2_modular"
+  },
+  "crawl": {
+    "pages_count": 1,
+    "js_files_scanned": []
+  },
+  "checks": {}
+}

@@ -1,1 +1,4 @@
 [AUDIT] Request to http://example.com - FAILED: Cannot connect to host example.com:80 ssl:default [Could not contact DNS servers]
+[AUDIT] Request to http://example.com - Status: 0
+[AUDIT] Request to http://10.255.255.1 - Status: 0
+[AUDIT] Request to https://httpstat.us/500 - Status: 0

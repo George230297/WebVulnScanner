@@ -1,8 +1,34 @@
 import json
 from datetime import datetime
+from collections import defaultdict
 from typing import Dict, List, Any
+from webvulnscanner.core.engine import AsyncScanner
 
 class ReportGenerator:
+    @staticmethod
+    def prepare_results(target: str, scanner: AsyncScanner) -> Dict[str, Any]:
+        """Converts scanner results into a structured dictionary."""
+        checks_data: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+        for v in scanner.vulnerabilities:
+            # Use centralized category from model
+            key = v.category.lower() if hasattr(v, 'category') and v.category else 'general'
+            
+            checks_data[key].append({
+                'type': v.type,
+                'url': v.url,
+                'param': getattr(v, 'param', 'N/A'),
+                'evidence': v.evidence
+            })
+            
+        return {
+            'meta': {'target': target, 'scanner': 'v2_modular'},
+            'crawl': {
+                'pages_count': len(scanner.visited),
+                'js_files_scanned': list(scanner.js_files_scanned)
+            },
+            'checks': dict(checks_data)
+        }
+
     @staticmethod
     def generate_json(data: Dict[str, Any]) -> str:
         return json.dumps(data, indent=2)
@@ -34,7 +60,7 @@ class ReportGenerator:
             for idx, item in enumerate(items, 1):
                 lines.append(f"**{idx}. {item.get('type')}**")
                 lines.append(f"- **URL**: `{item.get('url')}`")
-                if item.get('param'):
+                if item.get('param') and item.get('param') != 'N/A':
                     lines.append(f"- **Parámetro**: `{item.get('param')}`")
                 lines.append(f"- **Evidencia**: `{item.get('evidence')}`")
                 lines.append("")

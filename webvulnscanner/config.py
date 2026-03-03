@@ -7,18 +7,6 @@ DEFAULT_HEADERS: dict[str, str] = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
 }
 
-# XSS Payloads for testing reflection
-XSS_PAYLOADS: List[str] = [
-    '<script>alert(1)</script>',
-    '" onmouseover=alert(1) x="',
-    'javascript:alert(1)',
-]
-
-SQL_ERRORS = [
-    'you have an error in your sql syntax', 'warning: mysql',
-    'unclosed quotation mark', 'quoted string not properly terminated'
-]
-
 # Secret Patterns with improved precision
 REGEX_SECRETS: dict[str, str] = {
     'AWS Access Key': r'(?<![A-Z0-9])[A-Z0-9]{20}(?![A-Z0-9])', # Simplified for example, better to use specific prefixes like AKIA

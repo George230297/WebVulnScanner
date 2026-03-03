@@ -1,38 +1,50 @@
-from typing import List
+import os
+from typing import List, Optional, Dict, Any
 from webvulnscanner.plugins.base import BaseCheck
 from webvulnscanner.models.vulnerability import Vulnerability
-from webvulnscanner.config import XSS_PAYLOADS
 from webvulnscanner.core.network import send_probe
 
 class XSSCheck(BaseCheck):
-    name = "Reflected XSS"
+    name: str = "Reflected XSS"
 
-    async def check(self, session, url, html="", headers=None, params=None) -> List[Vulnerability]:
-        vulns = []
+    def __init__(self) -> None:
+        self.payloads: List[str] = self._load_payloads()
+
+    def _load_payloads(self) -> List[str]:
+        payload_file = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)),
+            'payloads',
+            'xss.txt'
+        )
+        try:
+            with open(payload_file, 'r', encoding='utf-8') as f:
+                return [line.strip() for line in f if line.strip()]
+        except FileNotFoundError:
+            return ['<script>alert(1)</script>'] # Fallback
+
+    async def check(self, session: Any, url: str, html: str = "", headers: Optional[Dict[str, str]] = None, params: Optional[Dict[str, Any]] = None) -> List[Vulnerability]:
+        vulns: List[Vulnerability] = []
         if not params:
             return vulns
 
         for k in params:
-            for p in XSS_PAYLOADS:
-                # Construct query
+            for p in self.payloads:
                 # Construct query
                 p_mod = params.copy()
                 p_mod[k] = p
                 
-                try:
-                    resp = await send_probe(url, method="GET", params=p_mod)
-                    if p in resp.text:
-                         # Confirm XSS
-                        vulns.append(Vulnerability(
-                            type="Reflected XSS",
-                            url=str(url),
-                            param=k,
-                            evidence=p,
-                            severity="High"
-                        ))
-                        # Break inner loop to avoid spamming same param
-                        break
-                except Exception:
-                    pass
+                # We use send_probe which already handles errors and timeouts gracefully
+                resp = await send_probe(url, method="GET", params=p_mod)
+                if resp.status != 0 and p in resp.text:
+                    # Confirm XSS
+                    vulns.append(Vulnerability(
+                        type="Reflected XSS",
+                        url=str(url),
+                        param=k,
+                        evidence=p,
+                        severity="High"
+                    ))
+                    # Break inner loop to avoid spamming same param
+                    break
         
         return vulns

@@ -84,16 +84,16 @@ La versión actual incluye los siguientes módulos (plugins):
 
 ## 📈 Mejoras Recientes (Refactoring)
 
-Se ha realizado una actualización completa del código base para alinearlo con las mejores prácticas de ingeniería de software:
+Se ha realizado una actualización completa del código base para alinearlo con las mejores prácticas de ingeniería de software y patrones de diseño modernos:
 
-- **Estandarización**: Renombrado de archivos clave (`run_scanner.py`, `setup.py`) siguiendo convenciones PEP 8.
-- **Desacoplamiento del Motor**: Refactorización del núcleo (`engine.py`) para eliminar dependencias rígidas de plugins específicos, mejorando la extensibilidad.
-- **Categorización Automática**: Implementación de lógica inteligente en los modelos para clasificar vulnerabilidades automáticamente, simplificando la generación de reportes.
-- **Limpieza de Código**: Eliminación de "code smells", variables duplicadas y mejora en el manejo de tipos.
-- **Arquitectura de Red Robusta**: Separación de la lógica de conexión mediante el patrón **Decorator**.
-  - **@audit_log**: Auditoría automática de todas las peticiones salientes en `audit.log`.
-  - **@retry_network**: Sistema de reintentos automáticos (x3) y tolerancia a fallos de red.
-- **Integración Profunda**: Los plugins (SQLi, XSS) ahora utilizan el nuevo núcleo de red `send_probe` para beneficiarse de la auditoría y resiliencia.
+- **Refactorización Asíncrona Robusta**: El núcleo (`engine.py` y `network.py`) ahora maneja nativamente las excepciones de red (timeouts, caídas de servidor) usando `aiohttp` y `asyncio`, sin interrumpir el escaneo. Retorna estado controlado (`status=0`) ante fallos.
+- **Patrón Strategy (Plugins Dinámicos)**: Los plugins de vulnerabilidades fueron desacoplados. El motor carga módulos de forma autónoma usando `importlib` y `pkgutil` desde el directorio de plugins. Para agregar detecciones, solo es necesario heredar de `BaseCheck`.
+- **Separación de Responsabilidades (SoC)**:
+  - **Manejo de Payloads**: Los payloads (ej. inyecciones SQL, vectores XSS) se eliminaron de la configuración general y ahora se cargan desde archivos dedicados (`payloads/sqli.txt`, `payloads/xss.txt`).
+  - **Reporting Centralizado**: La lógica JSON/Markdown se separó desde la CLI hacia un módulo especializado `reporting/formatter.py`.
+- **Gestión Avanzada de Payloads**: La reconstrucción de peticiones (`urlencode`/`urlunparse`) se hace manualmente tanto en peticiones generales como en plugins, previniendo que clientes HTTP sobre-codifiquen caracteres críticos (ej. `1'`).
+- **Strict Type Hinting**: Se ha adoptado un tipado estricto a lo largo de todo el código (usando `typing`), garantizando mayor confiabilidad y mantenibilidad.
+- **Auditoría de Red**: Se mantiene un robusto sistema de reintentos (`@retry_network`) y logging centralizado de auditoría (`@audit_log`) aislando la capa de transporte.
 
 ## ⚖️ Licencia
 

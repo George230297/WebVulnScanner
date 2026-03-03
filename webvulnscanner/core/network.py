@@ -30,16 +30,30 @@ async def send_probe(url: str, payload: Optional[Dict[str, Any]] = None, method:
     # Use a short timeout for the probe (5s connect, 10s total)
     timeout = aiohttp.ClientTimeout(total=10, connect=5)
     
-    async with aiohttp.ClientSession(timeout=timeout) as session:
-        async with session.request(method, url, json=payload, params=params) as response:
-            try:
-                # Read content explicitly
-                text = await response.text()
-            except UnicodeDecodeError:
-                text = await response.text(errors='replace')
-            
-            return ProbeResponse(
-                status=response.status,
-                text=text,
-                headers=dict(response.headers)
-            )
+    try:
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            # Construct the full URL manually if params are provided.
+            if params:
+                from urllib.parse import urlencode, urlunparse, urlparse
+                parsed_url = urlparse(url)
+                query_string = urlencode(params, doseq=True)
+                url = urlunparse((parsed_url.scheme, parsed_url.netloc, parsed_url.path, parsed_url.params, query_string, parsed_url.fragment))
+                
+            async with session.request(method, url, json=payload) as response:
+                try:
+                    # Read content explicitly
+                    text = await response.text()
+                except UnicodeDecodeError:
+                    text = await response.text(errors='replace')
+                
+                return ProbeResponse(
+                    status=response.status,
+                    text=text,
+                    headers=dict(response.headers)
+                )
+    except asyncio.TimeoutError:
+        return ProbeResponse(status=0, text="Request Timeout", headers={})
+    except aiohttp.ClientError as e:
+        return ProbeResponse(status=0, text=f"Client Error: {str(e)}", headers={})
+    except Exception as e:
+        return ProbeResponse(status=0, text=f"Unexpected Error: {str(e)}", headers={})

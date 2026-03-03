@@ -2,12 +2,11 @@ import argparse
 import asyncio
 import json
 import sys
-from collections import defaultdict
 from webvulnscanner.config import ScanConfig
 from webvulnscanner.core.engine import AsyncScanner
 from webvulnscanner.reporting.formatter import ReportGenerator
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="WebVulnScanner v2 (Modular)")
     parser.add_argument('--url', required=True, help="Target URL")
     parser.add_argument('--checks', nargs='+', default=[], help="Specific checks to run (default: all)")
@@ -27,7 +26,7 @@ def main():
     
     scanner = AsyncScanner(config)
     
-    async def run():
+    async def run() -> None:
         async with scanner:
             await scanner.crawl_loop()
             
@@ -36,44 +35,22 @@ def main():
     except KeyboardInterrupt:
         print("\n[!] Interrumpido por usuario.")
     except Exception as e:
-        print(f"[!] Error: {e}")
+        print(f"[!] Error inesperado en el escáner: {e}")
         
-    # Process results
-    results = prepare_results(args.url, scanner)
+    # Process results via the centralized formatter
+    results = ReportGenerator.prepare_results(args.url, scanner)
     
     # Save JSON
-    with open(args.report, 'w') as f:
+    with open(args.report, 'w', encoding='utf-8') as f:
         f.write(ReportGenerator.generate_json(results))
         
     # Save Markdown
     md_file = args.report.replace('.json', '.md') if args.report.endswith('.json') else args.report + '.md'
-    with open(md_file, 'w') as f:
+    with open(md_file, 'w', encoding='utf-8') as f:
         f.write(ReportGenerator.generate_markdown(results))
         
     print(f"[+] Escaneo terminado. {len(scanner.visited)} páginas escaneadas.")
     print(f"[+] Reportes guardados: {args.report}, {md_file}")
-
-def prepare_results(target, scanner):
-    checks_data = defaultdict(list)
-    for v in scanner.vulnerabilities:
-        # Use centralized category from model
-        key = v.category.lower() if v.category else 'general'
-        
-        checks_data[key].append({
-            'type': v.type,
-            'url': v.url,
-            'param': v.param,
-            'evidence': v.evidence
-        })
-        
-    return {
-        'meta': {'target': target, 'scanner': 'v2_modular'},
-        'crawl': {
-            'pages_count': len(scanner.visited),
-            'js_files_scanned': list(scanner.js_files_scanned)
-        },
-        'checks': dict(checks_data)
-    }
 
 if __name__ == "__main__":
     main()
