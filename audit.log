@@ -2,3 +2,7 @@
 [AUDIT] Request to http://example.com - Status: 0
 [AUDIT] Request to http://10.255.255.1 - Status: 0
 [AUDIT] Request to https://httpstat.us/500 - Status: 0
+[AUDIT] Request to http://example.com - Status: 200
+[AUDIT] Request to http://example.com - FAILED: Simulated failure
+[AUDIT] Request to http://example.com - Status: 200
+[AUDIT] Request to http://example.com - FAILED: Simulated failure

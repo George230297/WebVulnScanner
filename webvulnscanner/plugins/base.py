@@ -1,23 +1,40 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any
+from typing import List, Optional, Dict, Any
 from webvulnscanner.models.vulnerability import Vulnerability
 
+
 class BaseCheck(ABC):
-    """Abstract Base Class for all vulnerability checks."""
+    """Abstract Base Class for all vulnerability checks.
     
+    Subclasses MUST implement:
+      - name (as a @property returning a str)
+      - check (async method returning List[Vulnerability])
+    """
+
     @property
     @abstractmethod
     def name(self) -> str:
-        pass
+        """Unique human-readable name for this check."""
+        ...
 
-    async def check(self, session, url: str, html: str = "", headers: dict = None, params: dict = None) -> List[Vulnerability]:
-        """
-        Main check method.
-        :param session: aiohttp session for making active requests
-        :param url: Current URL being scanned
-        :param html: HTML content of the page (for passive checks)
-        :param headers: Response headers (for passive checks)
-        :param params: URL parameters (for checking XSS/SQLi injection points)
-        :return: List of found vulnerabilities
+    async def check(
+        self,
+        session: Any,
+        url: str,
+        html: str = "",
+        headers: Optional[Dict[str, Any]] = None,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> List[Vulnerability]:
+        """Main check method.
+
+        Args:
+            session: aiohttp.ClientSession for making active requests.
+            url: Current URL being scanned.
+            html: HTML content of the page (for passive checks).
+            headers: Response headers (for passive checks).
+            params: URL parameters (for injection checks like XSS/SQLi).
+
+        Returns:
+            List of found Vulnerability objects.
         """
         return []

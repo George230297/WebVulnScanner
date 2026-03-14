@@ -2,39 +2,39 @@
 import asyncio
 import functools
 import logging
-from typing import Callable, Any
+from typing import Callable, Any, Optional
 
 logger = logging.getLogger("WebVulnScanner")
+
 
 def audit_log(func: Callable) -> Callable:
     """
     Decorator that logs every outgoing request and its response status code to a file.
-    Assumes the first argument is 'url'.
+    Assumes the first positional argument is 'url'.
     """
     @functools.wraps(func)
-    async def wrapper(*args, **kwargs):
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
         # Extract URL for logging
-        url = "Unknown"
+        url: str = "Unknown"
         if args:
-            url = args[0]
+            url = str(args[0])
         elif 'url' in kwargs:
-            url = kwargs['url']
+            url = str(kwargs['url'])
 
         try:
             result = await func(*args, **kwargs)
-            
+
             # Determine status code based on return type
-            status = "Unknown"
+            status: Any = "Unknown"
             if hasattr(result, 'status'):
-                 status = result.status
+                status = result.status
             elif isinstance(result, tuple) and len(result) >= 2:
-                 status = result[1] # Assuming (url, status, ...)
+                status = result[1]  # (url, status, ...)
             elif isinstance(result, int):
                 status = result
-                
+
             log_entry = f"[AUDIT] Request to {url} - Status: {status}\n"
-            
-            # Append to audit file
+
             try:
                 with open("audit.log", "a", encoding="utf-8") as f:
                     f.write(log_entry)
@@ -42,39 +42,48 @@ def audit_log(func: Callable) -> Callable:
                 logger.error(f"Failed to write to audit log: {e}")
 
             return result
-            
+
         except Exception as e:
-            # Log failure
             try:
                 with open("audit.log", "a", encoding="utf-8") as f:
                     f.write(f"[AUDIT] Request to {url} - FAILED: {str(e)}\n")
             except IOError:
                 pass
-            raise e
+            raise
 
     return wrapper
 
+
 def retry_network(func: Callable) -> Callable:
     """
-    Decorator that retries the function 3 times automatically if a Timeout occurs.
+    Decorator that retries the function up to 3 times on TimeoutError.
+    After exhausting retries, re-raises the last exception.
     """
     @functools.wraps(func)
-    async def wrapper(*args, **kwargs):
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
         max_retries = 3
-        last_exception = None
-        
+        last_exception: Optional[Exception] = None
+
         for attempt in range(1, max_retries + 1):
             try:
                 return await func(*args, **kwargs)
             except (asyncio.TimeoutError, TimeoutError) as e:
                 last_exception = e
                 if attempt < max_retries:
-                    logger.warning(f"Timeout calling {func.__name__}, retrying ({attempt}/{max_retries})...")
-                    await asyncio.sleep(1) # Short backoff
+                    logger.warning(
+                        f"Timeout calling {func.__name__}, retrying ({attempt}/{max_retries})..."
+                    )
+                    await asyncio.sleep(1)
                 else:
-                    logger.error(f"Timeout calling {func.__name__} after {max_retries} attempts.")
-        
-        if last_exception:
+                    logger.error(
+                        f"Timeout calling {func.__name__} after {max_retries} attempts."
+                    )
+
+        # BUG-6 FIX: always re-raise if we exhausted retries; never return None silently.
+        if last_exception is not None:
             raise last_exception
-            
+
+        # This path is unreachable in practice, but satisfies type checkers.
+        return None  # pragma: no cover
+
     return wrapper

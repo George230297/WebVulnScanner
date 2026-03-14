@@ -7,14 +7,16 @@ DEFAULT_HEADERS: dict[str, str] = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
 }
 
-# Secret Patterns with improved precision
+# Secret Patterns — ordered from most specific to least specific to reduce false positives.
+# NOTE: The generic 20-char uppercase pattern was removed because it generates
+# massive false positives (matches any 20-char uppercase string). The AKIA prefix
+# pattern already covers AWS Access Keys correctly.
 REGEX_SECRETS: dict[str, str] = {
-    'AWS Access Key': r'(?<![A-Z0-9])[A-Z0-9]{20}(?![A-Z0-9])', # Simplified for example, better to use specific prefixes like AKIA
     'AWS API Key': r'AKIA[0-9A-Z]{16}',
-    'Google API Key': r'AIza[0-9A-Za-z-_]{35}',
-    'Generic Token': r'(api_key|auth_token|access_token|secret_key)\s*[:=]\s*[\"\']([a-zA-Z0-9_\-]{20,})[\"\']',
+    'Google API Key': r'AIza[0-9A-Za-z\-_]{35}',
+    'Generic Token': r'(?:api_key|auth_token|access_token|secret_key)\s*[:=]\s*["\']([a-zA-Z0-9_\-]{20,})["\']',
     'Slack Token': r'xox[baprs]-([0-9a-zA-Z]{10,48})',
-    'Private Key': r'-----BEGIN\s+(?:RSA|DSA|EC|OPENSSH|PRIVATE)\s+KEY-----',
+    'Private Key': r'-----BEGIN (?:RSA |DSA |EC |OPENSSH |)PRIVATE KEY-----',
 }
 
 REGEX_ENDPOINTS = r'["\'](\/[a-zA-Z0-9_./-]+)["\']'
@@ -31,6 +33,7 @@ SECURITY_HEADERS = {
     'Strict-Transport-Security': 'Missing HSTS',
     'X-Content-Type-Options': 'Missing X-Content-Type-Options'
 }
+
 
 @dataclass
 class ScanConfig:
