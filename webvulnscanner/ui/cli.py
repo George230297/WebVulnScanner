@@ -10,9 +10,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="WebVulnScanner v2 (Modular)")
     parser.add_argument('--url', required=True, help="Target URL")
     parser.add_argument('--checks', nargs='+', default=[], help="Specific checks to run (default: all)")
-    parser.add_argument('--max-pages', type=int, default=50)
-    parser.add_argument('--workers', type=int, default=20)
-    parser.add_argument('--report', default='report.json')
+    parser.add_argument('--max-pages', type=int, default=50, help='Número máximo de páginas a visitar durante el crawling')
+    parser.add_argument('--workers', type=int, default=20, help='Número de hilos/conexiones concurrentes')
+    parser.add_argument('--report', default='report.json', help='Nombre y ruta del archivo de reporte a generar')
     args = parser.parse_args()
     
     print(f"[*] Iniciando escaneo asíncrono a {args.url}")

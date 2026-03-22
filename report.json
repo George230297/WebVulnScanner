@@ -1,7 +1,8 @@
 {
   "meta": {
-    "target": "http://testphp.vulnweb.com/listproducts.php?cat=1",
-    "scanner": "v2_modular"
+    "target": "http://example.com",
+    "scanner": "WebVulnScanner v2_modular",
+    "timestamp": "2026-03-22T05:28:05.141883+00:00"
   },
   "crawl": {
     "pages_count": 1,

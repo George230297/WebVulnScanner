@@ -21,6 +21,8 @@ class AsyncScanner:
         self.js_files_scanned: Set[str] = set()
         self.vulnerabilities: List[Vulnerability] = []
         self.endpoints_found: List[Dict[str, Any]] = []
+        self.discovered_technologies: List[Dict[str, Any]] = []
+        self.soft_404_profile = None
         self.session: Optional[aiohttp.ClientSession] = None
         self.semaphore: asyncio.Semaphore = asyncio.Semaphore(config.concurrency)
         self.base_domain: str = urlparse(config.start_url).netloc
@@ -32,13 +34,9 @@ class AsyncScanner:
         self.ssl_context: ssl.SSLContext = ssl.create_default_context()
 
     async def __aenter__(self) -> "AsyncScanner":
-        timeout = aiohttp.ClientTimeout(total=20)
-        connector = aiohttp.TCPConnector(ssl=self.ssl_context)
-        self.session = aiohttp.ClientSession(
-            headers=DEFAULT_HEADERS,
-            timeout=timeout,
-            connector=connector
-        )
+        from webvulnscanner.core.network import init_network, _session
+        init_network(self.config.concurrency)
+        self.session = _session
         return self
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -52,38 +50,58 @@ class AsyncScanner:
         params: Optional[Dict[str, Any]] = None,
         data: Any = None,
     ) -> Tuple[str, int, str, Dict[str, str]]:
+        from webvulnscanner.core.session_manager import global_session
+        from webvulnscanner.core.stealth import global_stealth
+        from webvulnscanner.core.network import async_request
+
+        auth_kwargs = global_session.get_auth_kwargs()
+        headers = auth_kwargs.get('headers', {})
+        for k, v in DEFAULT_HEADERS.items():
+            if k not in headers:
+                headers[k] = v
+        auth_kwargs['headers'] = headers
+
         async with self.semaphore:
             try:
-                if not self.session:
-                    raise RuntimeError("Session not initialized. Use AsyncScanner as a context manager.")
+                # Disparar mediante StealthManager (Rotate UA + Jitter + WAF Backoff)
+                # Envoltura anti-DDoS y mitigación L7
+                probe = await global_stealth.execute_with_stealth(
+                    async_request,
+                    url=url,
+                    method=method,
+                    payload=data if isinstance(data, dict) else None,
+                    params=params,
+                    **auth_kwargs
+                )
+                
+                status = probe.status
+                text = probe.text
+                resp_headers = probe.headers or {}
 
-                # Manually construct URL to prevent aiohttp from over-encoding payloads (e.g. 1')
-                if params:
-                    from urllib.parse import urlencode, urlunparse
-                    parsed_url = urlparse(url)
-                    query_string = urlencode(params, doseq=True)
-                    url = urlunparse((
-                        parsed_url.scheme,
-                        parsed_url.netloc,
-                        parsed_url.path,
-                        parsed_url.params,
-                        query_string,
-                        parsed_url.fragment,
-                    ))
+                # ThreatIntel: Recolección pasiva de tecnologías targeteadas
+                server_header = resp_headers.get('Server', '')
+                if server_header and '/' in server_header:
+                    parts = server_header.split('/')
+                    tech = parts[0]
+                    version = parts[1].split(' ')[0]
+                    if not any(d['tech'] == tech and d['version'] == version for d in self.discovered_technologies):
+                        self.discovered_technologies.append({"target": urlparse(url).netloc, "tech": tech, "version": version})
 
-                async with self.session.request(method, url, data=data, allow_redirects=True) as resp:
-                    try:
-                        text = await resp.text()
-                    except UnicodeDecodeError:
-                        text = await resp.text(errors='replace')
+                # SessionManager: Rastreo pasivo de Tokens CSRF en respuestas limpias
+                if status == 200 and method == "GET" and text:
+                    global_session.extract_csrf_token(text, method="regex")
 
-                    return str(resp.url), resp.status, text, dict(resp.headers)
-
+                return url, status, text, resp_headers
             except Exception as e:
                 logger.debug(f"Error fetching {url}: {e}")
                 return url, 0, "", {}
 
     async def crawl_loop(self) -> None:
+        from webvulnscanner.utils.soft_404_profiler import calibrate_target
+        logger.info("[*] Calibrando heurística de evasión de fakes (Soft 404 Profiler)...")
+        # Calibración inicial ejecutada en thread para no asfixiar el asyncio loop
+        self.soft_404_profile = await asyncio.to_thread(calibrate_target, self.config.start_url)
+        
         queue: asyncio.Queue[str] = asyncio.Queue()
         queue.put_nowait(self.config.start_url)
 
@@ -108,6 +126,21 @@ class AsyncScanner:
         # BUG-12 FIX: ensure the background sensitive-files task finishes before we return
         await sensitive_task
 
+        # POST-PROCESS: Aplicando Threat Intelligence a nivel asíncrono sobre tecnologías detectadas
+        if self.discovered_technologies:
+            logger.info("[*] Escaneo profundo finalizado. Resolviendo bases de datos CTI...")
+            from webvulnscanner.core.threat_intel import threat_enricher
+            await threat_enricher.enrich_findings_batch(self.discovered_technologies)
+            
+            for tech in self.discovered_technologies:
+                for cve in tech.get('cves', []):
+                    self.vulnerabilities.append(Vulnerability(
+                        type=f"Threat Intel: {tech['tech']} {tech['version']}",
+                        url=tech['target'],
+                        evidence=f"CVE Encontrado: {cve['id']} - {cve['description']}",
+                        severity=cve['severity']
+                    ))
+
     async def check_waf(self) -> None:
         logger.info("[*] Comprobando WAF...")
         try:
@@ -122,14 +155,25 @@ class AsyncScanner:
 
         async def check(filename: str) -> None:
             target = urljoin(base_url + '/', filename)
-            _, status, _, _ = await self.fetch(target)
+            _, status, html, _ = await self.fetch(target)
+            
             if status == 200:
-                self.vulnerabilities.append(Vulnerability(
-                    type="Sensitive File",
-                    url=target,
-                    evidence=f"Exposed {filename}",
-                    severity="High"
-                ))
+                is_false_pos = False
+                # Bypass dinámico de verdaderos falsos positivos 200 OK
+                if self.soft_404_profile:
+                    from webvulnscanner.utils.soft_404_profiler import is_soft_404
+                    class MockResp:
+                        status_code = status
+                        text = html
+                    is_false_pos = is_soft_404(MockResp(), self.soft_404_profile)
+                
+                if not is_false_pos:
+                    self.vulnerabilities.append(Vulnerability(
+                        type="Sensitive File",
+                        url=target,
+                        evidence=f"Exposed {filename}",
+                        severity="High"
+                    ))
 
         await asyncio.gather(*[check(f) for f in SENSITIVE_FILES])
 
@@ -143,6 +187,14 @@ class AsyncScanner:
             return
 
         real_url_str = str(real_url)
+
+        # Activación Playwright DOM Parser para React/Vue SPAs detectados heurísticamente
+        if '<div id="root">' in html or '<div id="app">' in html or '<script type="module"' in html:
+            from webvulnscanner.core.browser import render_dynamic_page
+            logger.info(f"[*] SPA detectada en {url}. Despertando Playwright Renderer...")
+            rendered_html = await render_dynamic_page(real_url_str)
+            if rendered_html:
+                html = rendered_html
 
         # Discovery: follow <a> links within the same domain
         soup = BeautifulSoup(html, 'html.parser')

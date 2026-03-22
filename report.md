@@ -1,6 +1,6 @@
-# Reporte de Vulnerabilidades: http://testphp.vulnweb.com/listproducts.php?cat=1
-**Scanner**: v2_modular
-**Date**: 2026-02-25T03:23:51.937245
+# Reporte de Vulnerabilidades: http://example.com
+**Scanner**: WebVulnScanner v2_modular
+**Fecha**: 2026-03-22T05:28:05.141883+00:00
 
 ## Resumen de Reconocimiento
 - **Páginas Escaneadas**: 1
