@@ -186,7 +186,7 @@ class StealthManager:
                     
                     is_cloudflare = any(kw in server_hdr or kw in text_lower for kw in ['cloudflare', 'ddos-guard', 'cf-browser-verification', 'turnstile'])
                     
-                    if is_cloudflare and current_try == 0:
+                    if is_cloudflare and current_try == 0 and penalty.fails == 0:
                         logger.warning(f"[STEALTH] Bloqueo JS detectado ({status_code}) en {domain}. Derivando a Playwright Solver...")
                         try:
                             from webvulnscanner.core.browser import solve_cloudflare_challenge

@@ -29,10 +29,12 @@ class DynamicRenderer:
         
         # Bypass: Se inicia Chromium nativo de Kali Linux si existe, si no, usa el predeterminado.
         kali_chromium_path = '/usr/bin/chromium'
+        launch_args = ["--no-sandbox", "--disable-setuid-sandbox"]
+        
         if os.path.exists(kali_chromium_path):
-            self.browser = await self.playwright.chromium.launch(executable_path=kali_chromium_path, headless=self.headless)
+            self.browser = await self.playwright.chromium.launch(executable_path=kali_chromium_path, headless=self.headless, args=launch_args)
         else:
-            self.browser = await self.playwright.chromium.launch(headless=self.headless)
+            self.browser = await self.playwright.chromium.launch(headless=self.headless, args=launch_args)
             
         self.context = await self.browser.new_context()
         self.page = await self.context.new_page()
@@ -139,10 +141,12 @@ async def solve_cloudflare_challenge(url: str, headless: bool = True, timeout_se
     try:
         playwright = await async_playwright().start()
         kali_chromium_path = '/usr/bin/chromium'
+        launch_args = ["--no-sandbox", "--disable-setuid-sandbox"]
+        
         if os.path.exists(kali_chromium_path):
-            browser = await playwright.chromium.launch(executable_path=kali_chromium_path, headless=headless)
+            browser = await playwright.chromium.launch(executable_path=kali_chromium_path, headless=headless, args=launch_args)
         else:
-            browser = await playwright.chromium.launch(headless=headless)
+            browser = await playwright.chromium.launch(headless=headless, args=launch_args)
             
         context = await browser.new_context()
         page = await context.new_page()
