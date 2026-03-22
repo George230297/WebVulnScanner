@@ -159,8 +159,14 @@ class AsyncScanner:
             
             if status == 200:
                 is_false_pos = False
-                # Bypass dinámico de verdaderos falsos positivos 200 OK
-                if self.soft_404_profile:
+                
+                # Nivel 1: Validación Heurística Avanzada por Extensión y Firmas Front-End
+                from webvulnscanner.utils.sensitive_file_validator import is_real_sensitive_file
+                if not is_real_sensitive_file(status_code=status, response_text=html, file_path=target):
+                    is_false_pos = True
+                
+                # Nivel 2: Bypass dinámico del Soft 404 Profiler original
+                if not is_false_pos and self.soft_404_profile:
                     from webvulnscanner.utils.soft_404_profiler import is_soft_404
                     class MockResp:
                         status_code = status

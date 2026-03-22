@@ -93,7 +93,7 @@ La versión actual incluye los siguientes plugins integrados:
 
 En la versión más reciente, el orquestador (`engine.py`) ha sido profundamente rediseñado para acoplar nativamente 5 utilidades arquitectónicas de grado Enterprise. A continuación, el detalle del ciclo de vida interno de escaneo:
 
-1. **Pre-Calibración (`Soft404Profiler`)**: Antes de despachar el enjambre de hilos asíncronos en el `crawl_loop`, el motor ejecuta una calibración síncrona enviada a un sub-hilo independiente (`asyncio.to_thread`) para perfilar cómo responde el objetivo a archivos inexistentes. Extrae Hashes MD5 y longitudes DOM dinámicas. Esto asegura que el subsistema de descubrimiento en segundo plano jamás reporte falsos ".env" o "config.php" engañosos provistos por servidores como React o NextJS.
+1. **Doble Escudo Heurístico (Soft404Profiler + SensitiveFileValidator)**: Antes de despachar el enjambre de hilos asíncronos en el `crawl_loop`, el motor ejecuta una calibración síncrona enviada a un sub-hilo independiente (`asyncio.to_thread`) para perfilar cómo responde el objetivo a archivos inexistentes. Extrae Hashes MD5 y longitudes DOM dinámicas. Luego, durante la ejecución asíncrona, cualquier hallazgo `200 OK` pasa primero por un Validador Heurístico de Capa 7 (`SensitiveFileValidator`) que rastrea firmas inyectables de React/Vue (`<div id="root">`) cruzando lógicas estrictas por extensión de archivo (ej. exigiendo sentencias `INSERT INTO` para validar volcados `.sql`). Esto asegura que el subsistema jamás reporte falsos ".env" o "config.php" engañosos provistos por WAFs o balanceadores traicioneros.
 2. **Intercepción de Transporte (`StealthManager`)**: El escáner ya no invoca peticiones de forma descubierta. En la etapa de Fetch, el núcleo inyecta la función `async_request` en un *wrapper* de protección ofensiva. Ésta envuelve el tráfico asíncrono aplicando retardos estocásticos de simulación humana (Jitter), rotando aleatoriamente entre 10 User-Agents reales en cada milisegundo, y gestionando Locks automáticos por subdominio si se intercepta un baneo **HTTP 429** o **403**. Todo el ecosistema de *plugins* queda resguardado mágicamente tras contadores de BackOff exponencial lineal de reintento.
 3. **Persistencia Dinámica de Cuentas (`SessionManager`)**: Autentificación `Thread-Safe` universal. El motor inyecta automáticamente variables CSRF detectadas al vuelo en nuevas peticiones, absorbiendo tokens desde el DOM cada vez que se detecta un `200 OK`. Si a mitad del ciclo (que puede tardar horas) el cortafuegos expira el certificado (JWT/Cookie), el motor usa el cerrojo global para paralizar el escaneo, ejecuta asíncronamente un "Auto-Login" provisto por el Pentester (Callback), restablece las cabeceras a la RAM limpia, y despacha en cascada los cientos de hilos reanudados sin perder un solo escaneo.
 4. **Extracción en SPAs In-flight (`DynamicRenderer`)**: El analizador estático ya no se detiene ante React/Vue. Al interceptar fragmentos biológicos como `<div id="root">` en las respuestas crudas directas, el orquestador reanima asíncronamente a Chromium `Playwright` bajo Context Managers blindados para compilar los scripts locales, inyectando variables HTML enriquecidas al resto del motor y abortando en el núcleo *assets* pesados .css o .jpg para no penalizar la red.
@@ -140,6 +140,9 @@ classDiagram
         +calibrate_target()
         +is_soft_404()
     }
+    class SensitiveFileValidator {
+        +is_real_sensitive_file()
+    }
     class BaseCheck {
         <<interface>>
         +name: str
@@ -148,7 +151,8 @@ classDiagram
 
     CLI --> Engine : Parse Argumentos e inyecta Config
     Engine --> SessionManager : Configura Headers y Autenticación Global
-    Engine --> Soft404Profiler : Calibra Heurística Temprana
+    Engine --> SensitiveFileValidator : Nivel 1: Filtro Heurístico DOM
+    Engine --> Soft404Profiler : Nivel 2: Calibración Temprana MD5
     Engine --> StealthManager : Delega Peticiones Ofensivas al Interceptor
     StealthManager --> Network : Envuelve a la capa asyncio nativa  
     Engine --> DynamicRenderer : Reanima DOM en React/Vue
