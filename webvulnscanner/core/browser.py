@@ -23,9 +23,16 @@ class DynamicRenderer:
 
     async def __aenter__(self):
         """Inicializa Playwright y el navegador de forma controlada."""
+        import os
         self.playwright = await async_playwright().start()
-        # Se inicia Chromium porque suele ser el más estable y ligero para tareas headless.
-        self.browser = await self.playwright.chromium.launch(headless=self.headless)
+        
+        # Bypass: Se inicia Chromium nativo de Kali Linux si existe, si no, usa el predeterminado.
+        kali_chromium_path = '/usr/bin/chromium'
+        if os.path.exists(kali_chromium_path):
+            self.browser = await self.playwright.chromium.launch(executable_path=kali_chromium_path, headless=self.headless)
+        else:
+            self.browser = await self.playwright.chromium.launch(headless=self.headless)
+            
         self.context = await self.browser.new_context()
         self.page = await self.context.new_page()
 
