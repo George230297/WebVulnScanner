@@ -40,7 +40,7 @@ class DynamicRenderer:
         self.page = await self.context.new_page()
 
         # Inyectar Playwright Stealth para evadir detecciones antibot (Datadog, Cloudflare, etc.)
-        await stealth_async(self.page)
+        await Stealth().apply_stealth_async(self.page)
 
         # Configurar la interceptación inteligente y bloqueo de recursos
         await self.page.route("**/*", self._intercept_route)
