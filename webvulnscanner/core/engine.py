@@ -196,11 +196,14 @@ class AsyncScanner:
 
         # Activación Playwright DOM Parser para React/Vue SPAs detectados heurísticamente
         if '<div id="root">' in html or '<div id="app">' in html or '<script type="module"' in html:
-            from webvulnscanner.core.browser import render_dynamic_page
-            logger.info(f"[*] SPA detectada en {url}. Despertando Playwright Renderer...")
-            rendered_html = await render_dynamic_page(real_url_str)
-            if rendered_html:
-                html = rendered_html
+            try:
+                from webvulnscanner.core.browser import render_dynamic_page
+                logger.info(f"[*] SPA detectada en {url}. Despertando Playwright Renderer...")
+                rendered_html = await render_dynamic_page(real_url_str)
+                if rendered_html:
+                    html = rendered_html
+            except ImportError:
+                logger.warning(f"[*] SPA detectada en {url}, pero 'playwright' no se encuentra instalado en este entorno. Omitiendo renderizado dinámico (Fallback Estático).")
 
         # Discovery: follow <a> links within the same domain
         soup = BeautifulSoup(html, 'html.parser')

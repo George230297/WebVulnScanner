@@ -3,6 +3,15 @@ import random
 import string
 import logging
 from typing import Dict, Any, Optional, Union
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="requests")
+warnings.filterwarnings("ignore", message=".*urllib3.*chardet.*")
+try:
+    from requests.exceptions import RequestsDependencyWarning
+    warnings.simplefilter('ignore', RequestsDependencyWarning)
+except ImportError:
+    pass
+
 import requests
 from requests.exceptions import Timeout, ConnectionError, RequestException
 
