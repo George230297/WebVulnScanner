@@ -173,8 +173,8 @@ classDiagram
 
     CLI --> Engine : Parse Argumentos e inyecta Config
     Engine --> SessionManager : Configura Headers y Autenticación Global
-    Engine --> SensitiveFileValidator : Nivel 1: Filtro Heurístico DOM
-    Engine --> Soft404Profiler : Nivel 2: Calibración Temprana MD5
+    Engine --> SensitiveFileValidator : Nivel 1 - Filtro Heurístico DOM
+    Engine --> Soft404Profiler : Nivel 2 - Calibración Temprana MD5
     Engine --> StealthManager : Delega Peticiones Ofensivas al Interceptor
     StealthManager --> Network : Envuelve a la capa asyncio nativa  
     StealthManager ..> DynamicRenderer : Intercepta 403s y usa Solver Antibot
