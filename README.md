@@ -148,7 +148,7 @@ classDiagram
     }
     class DynamicRenderer {
         +render_dom(url)
-        +solve_cloudflare_challenge(url)*
+        +solve_cloudflare_challenge(url)
     }
     class ThreatIntelEnricher {
         +enrich_findings_batch()
