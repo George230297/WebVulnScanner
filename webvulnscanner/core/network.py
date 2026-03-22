@@ -71,6 +71,11 @@ async def async_request(url: str, method: str = "GET", payload: Optional[Dict[st
     # El semáforo restringe el número de corrutinas intentando hacer peticiones TCP concurrentemente
     async with _semaphore: # type: ignore
         try:
+            # Acoustic Fragmentation (Transfer-Encoding: chunked)
+            # aiohttp maneja chunked si se le pasa chunked=True, esencial para Bypass WAF L7.
+            if kwargs.pop('chunked_evasion', False):
+                kwargs['chunked'] = True
+                
             # Usamos json=payload y params=params. aiohttp mapeará correctamente estos campos
             # de acuerdo al formato de Requests adaptado.
             async with _session.request(method, url, json=payload, params=params, **kwargs) as response: # type: ignore

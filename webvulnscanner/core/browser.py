@@ -2,6 +2,7 @@ import asyncio
 import logging
 from typing import Optional
 from playwright.async_api import async_playwright, Browser, Page, Error as PlaywrightError
+from playwright_stealth import stealth_async
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,9 @@ class DynamicRenderer:
             
         self.context = await self.browser.new_context()
         self.page = await self.context.new_page()
+
+        # Inyectar Playwright Stealth para evadir detecciones antibot (Datadog, Cloudflare, etc.)
+        await stealth_async(self.page)
 
         # Configurar la interceptación inteligente y bloqueo de recursos
         await self.page.route("**/*", self._intercept_route)

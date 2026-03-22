@@ -45,8 +45,9 @@ class SQLiCheck(BaseCheck):
             return vulns
 
         for k in params:
+            from webvulnscanner.utils.encoder import encoder
             p_mod = params.copy()
-            p_mod[k] = "1'"
+            p_mod[k] = encoder.apply_random_mutation("1'", context="sqli")
 
             resp = await send_probe(url, method="GET", params=p_mod)
 

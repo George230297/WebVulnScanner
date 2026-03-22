@@ -1,7 +1,8 @@
+import os
 import asyncio
 import logging
 import random
-from typing import Dict, Optional, Callable, Awaitable, Any
+from typing import Dict, Optional, Callable, Awaitable, Any, List
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
@@ -46,6 +47,31 @@ class StealthManager:
         # Global lock simple para insertar subdominios nuevos al dict de castigos de forma atómica
         self._global_dict_lock = asyncio.Lock()
 
+        # Phase 4: Pool de Proxies
+        self.proxies: List[str] = self._load_proxies()
+
+    def _load_proxies(self) -> List[str]:
+        proxy_file = os.path.join(os.getcwd(), 'proxies.txt')
+        if not os.path.exists(proxy_file):
+            return []
+        try:
+            with open(proxy_file, 'r', encoding='utf-8') as f:
+                # Format: ip:port
+                return [line.strip() for line in f if line.strip()]
+        except Exception as e:
+            logger.error(f"[STEALTH] Error cargando proxies.txt: {e}")
+            return []
+
+    def get_random_proxy(self) -> Optional[str]:
+        if not self.proxies:
+            return None
+        return random.choice(self.proxies)
+
+    def remove_proxy(self, proxy: str) -> None:
+        if proxy in self.proxies:
+            self.proxies.remove(proxy)
+            logger.warning(f"[STEALTH] Proxy quemado por WAF (403/429) y descartado del pool: {proxy}")
+
     def get_random_user_agent(self) -> str:
         """Devuelve un User-Agent completamente aleatorio del Pool moderno."""
         return random.choice(USER_AGENTS)
@@ -73,13 +99,27 @@ class StealthManager:
         """
         domain = self._get_domain(url)
         
-        # 1. Rotación de cabeceras (User-Agent Spoofer)
+        # 1. Rotación de cabeceras (User-Agent Spoofer) y Spoofing de IP
         headers = kwargs.get('headers', {})
         if isinstance(headers, dict): 
             # Verifica variaciones de diccionarios insensibles a mayúsculas
             if not any(k.lower() == 'user-agent' for k in headers.keys()):
                 headers['User-Agent'] = self.get_random_user_agent()
+            
+            # Header Spoofing (Bypassing WAF IP Checks by forging internal IPs)
+            spoofed_ip = "127.0.0.1"
+            headers['X-Forwarded-For'] = spoofed_ip
+            headers['X-Originating-IP'] = spoofed_ip
+            headers['Client-IP'] = spoofed_ip
+            headers['X-Remote-IP'] = spoofed_ip
+            headers['X-Real-IP'] = spoofed_ip
+            
             kwargs['headers'] = headers
+
+        # Selección de proxy inicial dinámico
+        current_proxy = self.get_random_proxy()
+        if current_proxy:
+            kwargs['proxy'] = f"http://{current_proxy}"
 
         # 2. Aplicamos la ralentización de red Jitter de seguridad
         await self.apply_jitter()
@@ -123,6 +163,14 @@ class StealthManager:
                         logger.info(f"[STEALTH] ¡WAF Evadido o Rate Limit reiniciado para {domain}! Resumiendo ataques.")
                         penalty.fails = 0 # Sanar al subdominio
                     return response
+
+                # Auto-Healing: Si hay proxy y detona 403 o 429, el proxy está quemado. Lo rotamos y reintentamos.
+                if current_proxy:
+                    self.remove_proxy(current_proxy)
+                    current_proxy = self.get_random_proxy()
+                    if current_proxy:
+                        kwargs['proxy'] = f"http://{current_proxy}"
+                        continue # Reintenta de inmediato en el bucle principal con el nuevo proxy
 
                 # Un baneo fue detectado (429 'Too Many Requests' por exceso de peticiones 
                 # o repentino 403 'Forbidden' usualmente de un WAF como Cloudflare al detectar ráfagas bot)

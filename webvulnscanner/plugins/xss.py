@@ -41,11 +41,14 @@ class XSSCheck(BaseCheck):
 
         for k in params:
             for p in self.payloads:
+                from webvulnscanner.utils.encoder import encoder
+                mutated_p = encoder.apply_random_mutation(p, context="xss")
                 p_mod = params.copy()
-                p_mod[k] = p
+                p_mod[k] = mutated_p
 
                 resp = await send_probe(url, method="GET", params=p_mod)
-                if resp.status != 0 and p in resp.text:
+                # Check for either the mutated or the original payload to cover backend decoding
+                if resp.status != 0 and (mutated_p in resp.text or p in resp.text):
                     vulns.append(Vulnerability(
                         type="Reflected XSS",
                         url=str(url),

@@ -17,7 +17,7 @@ WebVulnScanner es una herramienta avanzada de auditoría de seguridad diseñada 
 
 - **Motor Asíncrono Absoluto**: Basado enteramente en `asyncio` y `aiohttp`, capaz de sostener y encolar cientos de peticiones sin agotar recursos.
 - **Renderizado Dinámico de SPAs (Cross-Platform Bypass)**: Integración nativa con `playwright` asíncrono. Soporte inteligente de conmutación de arquitectura: utiliza Chromium empotrado en Windows/Mac, o se engancha silenciosamente al binario nativo de penetración de Kali Linux (`/usr/bin/chromium`) para renderizar aplicaciones React, Vue o Angular de forma automatizada, optimizando recursos a nivel sistema operativo.
-- **Evasión de WAF (Stealth Mode)**: Algoritmos de evasión y *bypass* de Rate Limits con Math Jitter (Ruido), Rotación biológica activa del User-Agent, y semáforos de Backoff exponencial anti-baneos permanentes.
+- **Evasión de WAF (Stealth Mode) de Grado Militar**: Algoritmos avanzados de evasión L7 con rotación auto-sanable de Proxies (SOCKS/HTTP), Falsificación de Identidad (Spoofing de IPs internas), Fragmentación Acústica de tráfico HTTP Chunked, y mutación de Payloads polimórficos (`WafEncoder`). Incluye simulación humana (Math Jitter) automático anti-baneos permanentes.
 - **Gestión Avanzada de Sesiones**: Administración global *Thread-Safe* con auto-refresh de tokens JWT, extracción dinámica de tokens CSRF y cookies persistentes desde áreas privadas de las web-apps.
 - **Peritaje Threat Intelligence (CTI)**: Enriquecimiento automatizado en fase de post-procesamiento. Localiza vulnerabilidades subyacentes (CVEs) de tecnologías detectadas interactuando con bases públicas desde un motor local de concurrencia y caché.
 - **Análisis Híbrido**: DAST (inyección en vivo) + SAST (estudio estático de fugas de secretos JS).
@@ -53,7 +53,7 @@ pip install -r requirements.txt
 playwright install chromium
 ```
 
-> **Dependencias principales**: `aiohttp`, `playwright`, `beautifulsoup4`, `aiodns`  
+> **Dependencias principales**: `aiohttp`, `playwright`, `beautifulsoup4`, `aiohttp-socks`, `playwright-stealth`  
 
 ## 💻 Uso
 
@@ -100,9 +100,9 @@ La versión actual incluye los siguientes plugins integrados:
 En la versión más reciente, el orquestador (`engine.py`) ha sido profundamente rediseñado para acoplar nativamente 5 utilidades arquitectónicas de grado Enterprise. A continuación, el detalle del ciclo de vida interno de escaneo:
 
 1. **Doble Escudo Heurístico (Soft404Profiler + SensitiveFileValidator)**: Antes de despachar el enjambre de hilos asíncronos en el `crawl_loop`, el motor ejecuta una calibración síncrona enviada a un sub-hilo independiente (`asyncio.to_thread`) para perfilar cómo responde el objetivo a archivos inexistentes. **Silenciamiento Exhaustivo**: El módulo enmudece limpiamente en el núcleo dependencias base colisionadas u obsoletas pre-cargadas en Sistemas Operativos ofensivos (ej. *urllib3 RequestsDependencyWarning* habituales de Kali Linux), conservando el output inmaculado para el operador. Extrae Hashes MD5 y longitudes DOM dinámicas. Luego, durante la ejecución asíncrona, cualquier hallazgo `200 OK` pasa primero por un Validador Heurístico de Capa 7 (`SensitiveFileValidator`) que rastrea firmas inyectables de React/Vue (`<div id="root">`) cruzando lógicas estrictas por extensión de archivo (ej. exigiendo sentencias `INSERT INTO` para validar volcados `.sql`). Esto asegura que el subsistema jamás reporte falsos ".env" o "config.php" engañosos provistos por WAFs o balanceadores traicioneros.
-2. **Intercepción de Transporte (`StealthManager`)**: El escáner ya no invoca peticiones de forma descubierta. En la etapa de Fetch, el núcleo inyecta la función `async_request` en un *wrapper* de protección ofensiva. Ésta envuelve el tráfico asíncrono aplicando retardos estocásticos de simulación humana (Jitter), rotando aleatoriamente entre 10 User-Agents reales en cada milisegundo, y gestionando Locks automáticos por subdominio si se intercepta un baneo **HTTP 429** o **403**. Todo el ecosistema de *plugins* queda resguardado mágicamente tras contadores de BackOff exponencial lineal de reintento.
+2. **Intercepción de Transporte (`StealthManager`)**: El escáner ya no invoca peticiones de forma descubierta. En la etapa de Fetch, el núcleo inyecta la función `async_request` en un *wrapper* de protección ofensiva. Ésta envuelve el tráfico asíncrono aplicando retardos estocásticos de simulación humana (Jitter), rotando IPs mediante un pool dinámico de Proxies (`proxies.txt`), falsificando cabeceras de red interna (`X-Forwarded-For: 127.0.0.1`), e implementando semáforos de BackOff automático. Además, permite Fragmentación Acústica L7 (`Transfer-Encoding: chunked`) fragmentando paquetes asíncronos en vuelo.
 3. **Persistencia Dinámica de Cuentas (`SessionManager`)**: Autentificación `Thread-Safe` universal. El motor inyecta automáticamente variables CSRF detectadas al vuelo en nuevas peticiones, absorbiendo tokens desde el DOM cada vez que se detecta un `200 OK`. **Soporte Nativo para SPAs y APIs**: Si el analizador no detecta un CSRF tradicional (típico en React/NextJS), el gestor activa un algoritmo de *Fallback Tolerante* asumiendo la validación por JWT/Cookie pura, impidiendo el bloqueo en la inyección de los plugins ofensivos. Si a mitad del ciclo (que puede tardar horas) el cortafuegos expira el certificado, el motor usa el cerrojo global para paralizar el escaneo, ejecuta asíncronamente un "Auto-Login" (Callback), restablece las cabeceras a la RAM limpia, y despacha en cascada los cientos de hilos reanudados sin cuelgues.
-4. **Extracción en SPAs In-flight (`DynamicRenderer`)**: El analizador estático ya no se detiene ante React/Vue. Al interceptar fragmentos biológicos como `<div id="root">` en las respuestas crudas directas, el orquestador reanima asíncronamente a Chromium `Playwright` bajo Context Managers blindados. **Bypass de Entorno (Kali Linux Nativo)**: El motor identifica heurísticamente si está operando sobre distribuciones ofensivas e inyecta el path directo al ejecutable `/usr/bin/chromium`, exprimiendo asombrosamente el rendimiento del kernel Linux. **Degradación Elegante (Fallback Estático)**: Si la máquina atacante u operador omitió por completo instalar la dependencia general *Playwright* (`pip install playwright`), el orquestador captura limpiamente la excepción e ignora suavemente el DOM virtual, degradando elegantemente el análisis hacia su modalidad estática troncal pura, asegurando un porcentaje de asombrosos 0% crashes en campo de batalla.
+4. **Extracción en SPAs In-flight (`DynamicRenderer`)**: El analizador detecta y reanima asíncronamente a Chromium `Playwright`. Para sortear barreras anti-bot extremas (Datadog, Cloudflare Turnstile), inyecta la librería *stealth* anulando las marcas automatizadas de WebDriver. **Bypass de Entorno (Kali Linux Nativo)**: Se engancha a ejecutables nativos `/usr/bin/chromium` si detecta la distribución ofensiva. Si falta la dependencia *Playwright*, se degrada elegantemente a un análisis DOM estático puro.
 5. **Resolución Ofensiva CTI (`ThreatIntelEnricher`)**: Una vez colapsada la cola de escaneo activo (`queue.empty()`), el Engine extrajo pasivamente en las cabeceras `Server` una lista masiva de tecnologías. Se traspasa en Fase Final al Enriquecedor, el cual de forma totalmente asíncrona pero limitada por un Semáforo anti-rate limit, cruza la data local con APIs de Amenazas, deduplicando redundancias idénticas al milisegundo con *in-flight locks* de memoria, y listando `CVEs` certificados directos al Reporte Final (JSON/Markdown).
 6. **Gestión de Memoria y Graceful Shutdown (Zero-Leak)**: El ciclo vital del orquestador implementa integraciones *Lazy* rigurosas entre el conector `Engine` y el núcleo TCP multiplexor `Network`. Esto garantiza desestructuraciones automáticas puras (`__aexit__`), erradicando permanentemente el leak de sockets *"Unclosed client session"* de Aiohttp. Inclusive frente a *crashes* imprevistos, *timeouts* por WAF o interrupciones de teclado del Pentester, el sistema cerrará las válvulas lógicas y librará el 100% de la carga del búfer TCP al sistema operativo de forma limpia.
 
@@ -126,6 +126,7 @@ classDiagram
     class StealthManager {
         +execute_with_stealth()
         +apply_jitter()
+        +get_random_proxy()
     }
     class SessionManager {
         +load_raw_cookie()
@@ -135,7 +136,7 @@ classDiagram
     }
     class Network {
         +init_network()
-        +async_request()
+        +async_request(chunked_evasion)
     }
     class DynamicRenderer {
         +render_dom(url)
@@ -155,6 +156,11 @@ classDiagram
         +name: str
         +check(url, response)*
     }
+    class WafEncoder {
+        +apply_random_mutation()
+        +double_url_encode()
+        +sqli_tamper()
+    }
 
     CLI --> Engine : Parse Argumentos e inyecta Config
     Engine --> SessionManager : Configura Headers y Autenticación Global
@@ -162,11 +168,11 @@ classDiagram
     Engine --> Soft404Profiler : Nivel 2: Calibración Temprana MD5
     Engine --> StealthManager : Delega Peticiones Ofensivas al Interceptor
     StealthManager --> Network : Envuelve a la capa asyncio nativa  
-    Engine --> DynamicRenderer : Reanima DOM en React/Vue
+    Engine --> DynamicRenderer : Reanima DOM con Playwright Stealth
     Engine "1" *-- "*" BaseCheck : Carga Interfaces dinámicamente (Type Strategy)
     BaseCheck --> SessionManager : El Plugin asimila y detecta extractores
+    BaseCheck ..> WafEncoder : Delega Mutación Polimórfica de Payloads
     Engine --> ThreatIntelEnricher : Intercambio de Data CTI en Post-Procesamiento (CVEs)
-    Engine --> Formatter : Entrega Vulnerabilidades estructuradas
 ```
 
 ### Principios Fundamentales
