@@ -34,14 +34,14 @@ class AsyncScanner:
         self.ssl_context: ssl.SSLContext = ssl.create_default_context()
 
     async def __aenter__(self) -> "AsyncScanner":
-        from webvulnscanner.core.network import init_network, _session
-        init_network(self.config.concurrency)
-        self.session = _session
+        import webvulnscanner.core.network as net
+        net.init_network(self.config.concurrency)
+        self.session = net._session
         return self
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        if self.session:
-            await self.session.close()
+        import webvulnscanner.core.network as net
+        await net.close_network()
 
     async def fetch(
         self,
