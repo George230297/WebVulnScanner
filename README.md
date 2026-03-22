@@ -72,6 +72,14 @@ Opciones disponibles:
 - `--workers`: Número de hilos/conexiones concurrentes (default: 20).
 - `--report`: Nombre del archivo de reporte (default: `report.json`).
 
+### 🕶️ Configuración de Proxies (Auto-Evación y Curación)
+Para impedir baneos de IP por volumen L7, el motor soporta redes proxy SOCKS4/5/HTTP. Simplemente crea un archivo **`proxies.txt`** en la raíz del proyecto. El motor lo detectará automáticamente y ejecutará una rotación biológica (expulsando el proxy de la cola si el WAF arroja 403 o 429):
+```text
+# proxies.txt (Un proxy por línea, formato ip:puerto)
+192.168.10.50:8080
+10.0.1.15:1080
+```
+
 ### 📋 Ayuda y Comandos
 
 | Argumento           | Descripción                                                   | Requerido |    Default    |
@@ -100,7 +108,7 @@ La versión actual incluye los siguientes plugins integrados:
 En la versión más reciente, el orquestador (`engine.py`) ha sido profundamente rediseñado para acoplar nativamente 5 utilidades arquitectónicas de grado Enterprise. A continuación, el detalle del ciclo de vida interno de escaneo:
 
 1. **Doble Escudo Heurístico (Soft404Profiler + SensitiveFileValidator)**: Antes de despachar el enjambre de hilos asíncronos en el `crawl_loop`, el motor ejecuta una calibración síncrona enviada a un sub-hilo independiente (`asyncio.to_thread`) para perfilar cómo responde el objetivo a archivos inexistentes. **Silenciamiento Exhaustivo**: El módulo enmudece limpiamente en el núcleo dependencias base colisionadas u obsoletas pre-cargadas en Sistemas Operativos ofensivos (ej. *urllib3 RequestsDependencyWarning* habituales de Kali Linux), conservando el output inmaculado para el operador. Extrae Hashes MD5 y longitudes DOM dinámicas. Luego, durante la ejecución asíncrona, cualquier hallazgo `200 OK` pasa primero por un Validador Heurístico de Capa 7 (`SensitiveFileValidator`) que rastrea firmas inyectables de React/Vue (`<div id="root">`) cruzando lógicas estrictas por extensión de archivo (ej. exigiendo sentencias `INSERT INTO` para validar volcados `.sql`). Esto asegura que el subsistema jamás reporte falsos ".env" o "config.php" engañosos provistos por WAFs o balanceadores traicioneros.
-2. **Intercepción de Transporte (`StealthManager`)**: El escáner ya no invoca peticiones de forma descubierta. En la etapa de Fetch, el núcleo inyecta la función `async_request` en un *wrapper* de protección ofensiva. Ésta envuelve el tráfico asíncrono aplicando retardos estocásticos de simulación humana (Jitter), rotando IPs mediante un pool dinámico de Proxies (`proxies.txt`), falsificando cabeceras de red interna (`X-Forwarded-For: 127.0.0.1`), e implementando semáforos de BackOff automático. Además, permite Fragmentación Acústica L7 (`Transfer-Encoding: chunked`) fragmentando paquetes asíncronos en vuelo.
+2. **Intercepción de Transporte (`StealthManager`)**: El escáner ya no invoca peticiones de forma descubierta. En la etapa de Fetch, el núcleo inyecta la función `async_request` en un *wrapper* de protección ofensiva. Ésta envuelve el tráfico asíncrono aplicando retardos estocásticos de simulación humana (Jitter), rotando IPs mediante un pool dinámico de Proxies (`proxies.txt`), falsificando cabeceras de red interna (`X-Forwarded-For: 127.0.0.1`), e implementando semáforos de BackOff automático. Además, mediante heurística pasiva, si intercepta un bloqueo antibots (ej. **403 Cloudflare/Datadog**), bloquea el hilo infractor y deriva la resolución del desafío asíncronamente al renderizador oculto para extraer y asimilar la cookie (`cf_clearance`).
 3. **Persistencia Dinámica de Cuentas (`SessionManager`)**: Autentificación `Thread-Safe` universal. El motor inyecta automáticamente variables CSRF detectadas al vuelo en nuevas peticiones, absorbiendo tokens desde el DOM cada vez que se detecta un `200 OK`. **Soporte Nativo para SPAs y APIs**: Si el analizador no detecta un CSRF tradicional (típico en React/NextJS), el gestor activa un algoritmo de *Fallback Tolerante* asumiendo la validación por JWT/Cookie pura, impidiendo el bloqueo en la inyección de los plugins ofensivos. Si a mitad del ciclo (que puede tardar horas) el cortafuegos expira el certificado, el motor usa el cerrojo global para paralizar el escaneo, ejecuta asíncronamente un "Auto-Login" (Callback), restablece las cabeceras a la RAM limpia, y despacha en cascada los cientos de hilos reanudados sin cuelgues.
 4. **Extracción en SPAs In-flight (`DynamicRenderer`)**: El analizador detecta y reanima asíncronamente a Chromium `Playwright`. Para sortear barreras anti-bot extremas (Datadog, Cloudflare Turnstile), inyecta la librería *stealth* anulando las marcas automatizadas de WebDriver. **Bypass de Entorno (Kali Linux Nativo)**: Se engancha a ejecutables nativos `/usr/bin/chromium` si detecta la distribución ofensiva. Si falta la dependencia *Playwright*, se degrada elegantemente a un análisis DOM estático puro.
 5. **Resolución Ofensiva CTI (`ThreatIntelEnricher`)**: Una vez colapsada la cola de escaneo activo (`queue.empty()`), el Engine extrajo pasivamente en las cabeceras `Server` una lista masiva de tecnologías. Se traspasa en Fase Final al Enriquecedor, el cual de forma totalmente asíncrona pero limitada por un Semáforo anti-rate limit, cruza la data local con APIs de Amenazas, deduplicando redundancias idénticas al milisegundo con *in-flight locks* de memoria, y listando `CVEs` certificados directos al Reporte Final (JSON/Markdown).
@@ -140,6 +148,7 @@ classDiagram
     }
     class DynamicRenderer {
         +render_dom(url)
+        +solve_cloudflare_challenge(url)*
     }
     class ThreatIntelEnricher {
         +enrich_findings_batch()
@@ -168,6 +177,7 @@ classDiagram
     Engine --> Soft404Profiler : Nivel 2: Calibración Temprana MD5
     Engine --> StealthManager : Delega Peticiones Ofensivas al Interceptor
     StealthManager --> Network : Envuelve a la capa asyncio nativa  
+    StealthManager ..> DynamicRenderer : Intercepta 403s y usa Solver Antibot
     Engine --> DynamicRenderer : Reanima DOM con Playwright Stealth
     Engine "1" *-- "*" BaseCheck : Carga Interfaces dinámicamente (Type Strategy)
     BaseCheck --> SessionManager : El Plugin asimila y detecta extractores

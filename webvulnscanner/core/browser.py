@@ -125,3 +125,51 @@ async def render_dynamic_page(url: str, headless: bool = True, timeout_seconds: 
     async with DynamicRenderer(headless=headless, timeout_ms=timeout_ms) as renderer:
         html_content = await renderer.render_dom(url)
         return html_content
+
+async def solve_cloudflare_challenge(url: str, headless: bool = True, timeout_seconds: int = 25) -> Optional[dict]:
+    """
+    Spins up Playwright Stealth to navigate to a URL that threw a 403/503 (likely Cloudflare JS Challenge).
+    Waits for the challenge to be solved and returns the cookies (like cf_clearance) and User-Agent.
+    """
+    timeout_ms = timeout_seconds * 1000
+    import os
+    
+    playwright = None
+    browser = None
+    try:
+        playwright = await async_playwright().start()
+        kali_chromium_path = '/usr/bin/chromium'
+        if os.path.exists(kali_chromium_path):
+            browser = await playwright.chromium.launch(executable_path=kali_chromium_path, headless=headless)
+        else:
+            browser = await playwright.chromium.launch(headless=headless)
+            
+        context = await browser.new_context()
+        page = await context.new_page()
+        
+        # Inject Stealth (don't intercept specific routes to let JS challenge run fully)
+        await stealth_async(page)
+        
+        logger.warning(f"[BROWSER] Resolviendo desafío antibots (Cloudflare/Datadog) en {url}...")
+        
+        # We wait for networkidle which usually means the challenge has finished redirecting
+        await page.goto(url, wait_until="networkidle", timeout=timeout_ms)
+        
+        cookies = await context.cookies()
+        ua = await page.evaluate("navigator.userAgent")
+        
+        result = {
+            "cookies": {c['name']: c['value'] for c in cookies},
+            "user_agent": ua
+        }
+        logger.info(f"[BROWSER] Desafío de JavaScript 403 superado. Cookies de autorización copiadas ({len(cookies)}).")
+        return result
+    except Exception as e:
+        logger.warning(f"[BROWSER] Fallo al resolver desafío antibots en {url}: {e}")
+        return None
+    finally:
+        if browser:
+            await browser.close()
+        if playwright:
+            await playwright.stop()
+

@@ -152,6 +152,13 @@ class StealthManager:
                     from webvulnscanner.core.network import ProbeResponse
                     return ProbeResponse(status=0, text="WAF Ban detectado durante el Backoff", headers={})
 
+                # REFRESH IN-FLIGHT COOKIES: Si otro hilo resolvió un desafío (Cloudflare) 
+                # mientras esperábamos el Lock, absorbemos sus cookies para este reintento sin hacer otro desafío.
+                from webvulnscanner.core.session_manager import global_session
+                if global_session._cookies:
+                    kwargs['cookies'] = kwargs.get('cookies', {})
+                    kwargs['cookies'].update(global_session._cookies)
+
                 # Ejecuta la inyección real HTTP contra el target L7
                 response = await request_coroutine(url, *args, **kwargs)
                 
@@ -165,15 +172,50 @@ class StealthManager:
                     return response
 
                 # Auto-Healing: Si hay proxy y detona 403 o 429, el proxy está quemado. Lo rotamos y reintentamos.
-                if current_proxy:
+                if current_proxy and status_code in (403, 429):
                     self.remove_proxy(current_proxy)
                     current_proxy = self.get_random_proxy()
                     if current_proxy:
                         kwargs['proxy'] = f"http://{current_proxy}"
                         continue # Reintenta de inmediato en el bucle principal con el nuevo proxy
 
+                # Intercepción Definitiva de WAF (Cloudflare/Datadog JS Challenge)
+                if status_code in (403, 503):
+                    server_hdr = getattr(response, 'headers', {}).get('Server', '').lower()
+                    text_lower = getattr(response, 'text', '').lower()
+                    
+                    is_cloudflare = any(kw in server_hdr or kw in text_lower for kw in ['cloudflare', 'ddos-guard', 'cf-browser-verification', 'turnstile'])
+                    
+                    if is_cloudflare and current_try == 0:
+                        logger.warning(f"[STEALTH] Bloqueo JS detectado ({status_code}) en {domain}. Derivando a Playwright Solver...")
+                        try:
+                            from webvulnscanner.core.browser import solve_cloudflare_challenge
+                            solver_result = await solve_cloudflare_challenge(url)
+                            
+                            if solver_result and solver_result.get('cookies'):
+                                # Inyectar cookies (ej. cf_clearance) en el motor transversal para futuras peticiones
+                                for k, v in solver_result['cookies'].items():
+                                    global_session._cookies[k] = v
+                                    
+                                # Alinear firma UA con la sesión Playwright evadida
+                                if solver_result.get('user_agent'):
+                                    kwargs['headers'] = kwargs.get('headers', {})
+                                    kwargs['headers']['User-Agent'] = solver_result['user_agent']
+                                
+                                # Actualizar explícitamente el paquete asíncrono actual y reintentar
+                                kwargs['cookies'] = kwargs.get('cookies', {})
+                                kwargs['cookies'].update(solver_result['cookies'])
+                                
+                                logger.info(f"[STEALTH] Inyección exitosa de Clearance Cookies. Bypasseando bloqueo...")
+                                continue # Volver a peticionar en la capa asyncio sana
+                                
+                        except ImportError:
+                            logger.error("[STEALTH] El módulo 'playwright' no está instalado de cara al Solver. (Ejecuta: pip install -r requirements.txt)")
+                        except Exception as e:
+                            logger.debug(f"[STEALTH] Error crítico invocando Solver interno: {e}")
+
                 # Un baneo fue detectado (429 'Too Many Requests' por exceso de peticiones 
-                # o repentino 403 'Forbidden' usualmente de un WAF como Cloudflare al detectar ráfagas bot)
+                # o repentino 403 'Forbidden' originando la acumulación)
                 penalty.fails += 1
                 current_try = penalty.fails
                 

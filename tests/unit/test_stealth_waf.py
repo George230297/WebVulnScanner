@@ -1,6 +1,6 @@
 import pytest
 import asyncio
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 from webvulnscanner.core.stealth import StealthManager
 
 @pytest.mark.asyncio
@@ -42,3 +42,4 @@ def test_proxy_rotation(mock_exists):
         manager.remove_proxy(proxy)
         assert len(manager.proxies) == 1
         assert manager.proxies[0] != proxy
+
