@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import re
-from typing import Dict, Optional, Callable, Awaitable
+from typing import Dict, Optional, Callable, Awaitable, Any
 from bs4 import BeautifulSoup
 import aiohttp
 
