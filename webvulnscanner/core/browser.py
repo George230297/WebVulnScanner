@@ -2,7 +2,7 @@ import asyncio
 import logging
 from typing import Optional
 from playwright.async_api import async_playwright, Browser, Page, Error as PlaywrightError
-from playwright_stealth import stealth_async
+from playwright_stealth import Stealth
 
 logger = logging.getLogger(__name__)
 
@@ -148,7 +148,7 @@ async def solve_cloudflare_challenge(url: str, headless: bool = True, timeout_se
         page = await context.new_page()
         
         # Inject Stealth (don't intercept specific routes to let JS challenge run fully)
-        await stealth_async(page)
+        await Stealth().apply_stealth_async(page)
         
         logger.warning(f"[BROWSER] Resolviendo desafío antibots (Cloudflare/Datadog) en {url}...")
         
