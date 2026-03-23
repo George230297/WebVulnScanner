@@ -29,7 +29,13 @@ def is_real_sensitive_file(status_code: int, response_text: str, file_path: str)
         "<!doctype html", 
         '<div id="root">', 
         '<div id="app">',
-        '<script type="module"'
+        '<script type="module"',
+        # Plain text or JSON 404 signatures
+        "404 not found",
+        "page not found",
+        "not be found",
+        "hubo un error",
+        "not exist"
     ]
     
     for firma in firmas_falso_positivo:

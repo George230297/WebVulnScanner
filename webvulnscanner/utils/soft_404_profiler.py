@@ -98,7 +98,7 @@ def calibrate_target(base_url: str, timeout: int = 10) -> Optional[Soft404Profil
     
     return None
 
-def is_soft_404(response: requests.Response, baseline_profile: Soft404Profile, length_tolerance: float = 0.05) -> bool:
+def is_soft_404(response: requests.Response, baseline_profile: Soft404Profile, length_tolerance: float = 0.25) -> bool:
     """
     Fase de Verificación: Compara una respuesta sospechosa con el perfil base para determinar 
     si, aunque sea un 200 OK, la página en realidad actúa como un Soft 404.

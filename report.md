@@ -1,9 +1,9 @@
-# Reporte de Vulnerabilidades: http://example.com
+# Reporte de Vulnerabilidades: http://127.0.0.1:3000
 **Scanner**: WebVulnScanner v2_modular
-**Fecha**: 2026-03-22T05:28:05.141883+00:00
+**Fecha**: 2026-03-23T07:37:19.529182+00:00
 
 ## Resumen de Reconocimiento
-- **Páginas Escaneadas**: 1
+- **Páginas Escaneadas**: 0
 - **Archivos JS Analizados**: 0
 
 ## Hallazgos de Seguridad

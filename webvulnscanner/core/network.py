@@ -75,9 +75,14 @@ async def async_request(url: str, method: str = "GET", payload: Optional[Dict[st
             if kwargs.pop('chunked_evasion', False):
                 kwargs['chunked'] = True
                 
-            # Usamos json=payload y params=params. aiohttp mapeará correctamente estos campos
-            # de acuerdo al formato de Requests adaptado.
-            async with _session.request(method, url, json=payload, params=params, **kwargs) as response: # type: ignore
+            # Despacho Inteligente de Payload: Respetamos 'data' como Form-Urlencoded
+            # y 'payload' como Application/JSON puro.
+            request_kwargs = {"params": params}
+            if payload:
+                request_kwargs["json"] = payload
+            request_kwargs.update(kwargs)
+            
+            async with _session.request(method, url, **request_kwargs) as response: # type: ignore
                 try:
                     # Security Limit: Max 5MB per Request to prevent OOM DOS
                     raw_bytes = await response.content.read(5 * 1024 * 1024)
@@ -110,6 +115,4 @@ async def async_request(url: str, method: str = "GET", payload: Optional[Dict[st
 # Alias o wrapper para mantener temporalmente la compatibilidad con el resto del código no migrado.
 async def send_probe(url: str, payload: Optional[Dict[str, Any]] = None, method: str = "POST", params: Optional[Dict[str, Any]] = None, **kwargs) -> ProbeResponse:
     """Wrapper Legacy para asegurar compatibilidad con código no refactorizado."""
-    if 'data' in kwargs and not payload:
-        payload = kwargs.pop('data')
     return await async_request(url=url, method=method, payload=payload, params=params, **kwargs)

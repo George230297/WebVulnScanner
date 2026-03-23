@@ -18,4 +18,4 @@ def test_sqli_tamper():
 def test_apply_random_mutation():
     payload = "UNION SELECT"
     mutated = WafEncoder.apply_random_mutation(payload, context="sqli")
-    assert mutated != payload or mutated == urllib.parse.quote(urllib.parse.quote(payload)) # Might be URL double encoded
+    assert mutated == payload or "UNION" in mutated # Puede quedar intacto (JSON-safe) o aplicar sqli_tamper
