@@ -32,3 +32,5 @@
 [AUDIT] Request to http://example.com - FAILED: Simulated failure
 [AUDIT] Request to http://example.com - Status: 200
 [AUDIT] Request to http://example.com - FAILED: Simulated failure
+[AUDIT] Request to http://example.com - Status: 200
+[AUDIT] Request to http://example.com - FAILED: Simulated failure

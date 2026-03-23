@@ -108,6 +108,8 @@ async def async_request(url: str, method: str = "GET", payload: Optional[Dict[st
             return ProbeResponse(status=0, text=f"Unexpected Error: {str(e)}", headers={})
 
 # Alias o wrapper para mantener temporalmente la compatibilidad con el resto del código no migrado.
-async def send_probe(url: str, payload: Optional[Dict[str, Any]] = None, method: str = "POST", params: Optional[Dict[str, Any]] = None) -> ProbeResponse:
+async def send_probe(url: str, payload: Optional[Dict[str, Any]] = None, method: str = "POST", params: Optional[Dict[str, Any]] = None, **kwargs) -> ProbeResponse:
     """Wrapper Legacy para asegurar compatibilidad con código no refactorizado."""
-    return await async_request(url=url, method=method, payload=payload, params=params)
+    if 'data' in kwargs and not payload:
+        payload = kwargs.pop('data')
+    return await async_request(url=url, method=method, payload=payload, params=params, **kwargs)
