@@ -18,6 +18,7 @@ class SecurityHeadersCheck(BaseCheck):
         html: str = "",
         headers: Optional[Dict[str, str]] = None,
         params: Optional[Dict[str, Any]] = None,
+        data: Optional[Dict[str, Any]] = None,
     ) -> List[Vulnerability]:
         vulns: List[Vulnerability] = []
         if not headers:

@@ -24,6 +24,7 @@ class BaseCheck(ABC):
         html: str = "",
         headers: Optional[Dict[str, Any]] = None,
         params: Optional[Dict[str, Any]] = None,
+        data: Optional[Dict[str, Any]] = None,
     ) -> List[Vulnerability]:
         """Main check method.
 

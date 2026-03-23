@@ -34,29 +34,45 @@ class XSSCheck(BaseCheck):
         html: str = "",
         headers: Optional[Dict[str, str]] = None,
         params: Optional[Dict[str, Any]] = None,
+        data: Optional[Dict[str, Any]] = None,
     ) -> List[Vulnerability]:
         vulns: List[Vulnerability] = []
-        if not params:
-            return vulns
+        from webvulnscanner.utils.encoder import encoder
+        
+        if params:
+            for k in params:
+                for p in self.payloads:
+                    mutated_p = encoder.apply_random_mutation(p, context="xss")
+                    p_mod = params.copy()
+                    p_mod[k] = mutated_p
 
-        for k in params:
-            for p in self.payloads:
-                from webvulnscanner.utils.encoder import encoder
-                mutated_p = encoder.apply_random_mutation(p, context="xss")
-                p_mod = params.copy()
-                p_mod[k] = mutated_p
+                    resp = await send_probe(url, method="GET", params=p_mod)
+                    if resp.status != 0 and (mutated_p in resp.text or p in resp.text):
+                        vulns.append(Vulnerability(
+                            type="Reflected XSS",
+                            url=str(url),
+                            param=k,
+                            evidence=p,
+                            severity="High"
+                        ))
+                        break
+                        
+        if data:
+            for k in data:
+                for p in self.payloads:
+                    mutated_p = encoder.apply_random_mutation(p, context="xss")
+                    d_mod = data.copy()
+                    d_mod[k] = mutated_p
 
-                resp = await send_probe(url, method="GET", params=p_mod)
-                # Check for either the mutated or the original payload to cover backend decoding
-                if resp.status != 0 and (mutated_p in resp.text or p in resp.text):
-                    vulns.append(Vulnerability(
-                        type="Reflected XSS",
-                        url=str(url),
-                        param=k,
-                        evidence=p,
-                        severity="High"
-                    ))
-                    # Stop testing further payloads for this param once found
-                    break
+                    resp = await send_probe(url, method="POST", data=d_mod)
+                    if resp.status != 0 and (mutated_p in resp.text or p in resp.text):
+                        vulns.append(Vulnerability(
+                            type="POST XSS",
+                            url=str(url),
+                            param=k,
+                            evidence=p,
+                            severity="High"
+                        ))
+                        break
 
         return vulns

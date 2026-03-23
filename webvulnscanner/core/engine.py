@@ -212,6 +212,35 @@ class AsyncScanner:
             if urlparse(link).netloc == self.base_domain and link not in self.visited:
                 queue.put_nowait(link)
 
+        # Advanced DAST: Extract and fuzz HTML <form>s natively
+        for form in soup.find_all('form'):
+            action = form.get('action') or ''
+            method = form.get('method', 'get').lower()
+            form_url = urljoin(real_url_str, action)
+            
+            # Extract expected parameters
+            inputs = form.find_all(['input', 'textarea', 'select'])
+            form_data = {}
+            for inp in inputs:
+                name = inp.get('name')
+                if not name:
+                    continue
+                # Give a default fuzzer-friendly testing value if empty
+                val = inp.get('value', '1')
+                form_data[name] = val
+                
+            if urlparse(form_url).netloc == self.base_domain:
+                if method == 'post':
+                    # Dispatch extracted POST forms directly to plugins
+                    logger.info(f"[*] Formulario POST descubierto: {form_url} | Inputs: {list(form_data.keys())}")
+                    await self.run_plugins(form_url, html="", headers=headers, form_data=form_data)
+                elif method == 'get':
+                    # If it's a GET form, encode the inputs into the URL and queue it natively
+                    import urllib.parse
+                    get_url = f"{form_url}?{urllib.parse.urlencode(form_data)}"
+                    if get_url not in self.visited:
+                        queue.put_nowait(get_url)
+
         # Discovery: find and process <script src="..."> files (JS SAST)
         scripts = [
             urljoin(real_url_str, str(s.get('src')))
@@ -259,11 +288,11 @@ class AsyncScanner:
                     except Exception:
                         pass
 
-    async def run_plugins(self, url: str, html: str, headers: Dict[str, str]) -> None:
+    async def run_plugins(self, url: str, html: str, headers: Dict[str, str], form_data: Optional[Dict[str, Any]] = None) -> None:
         parsed = urlparse(url)
         params: Dict[str, Any] = dict(parse_qsl(parsed.query))
 
-        logger.debug(f"Running plugins for {url} with params {params}")
+        logger.debug(f"Running plugins for {url} with GET params {params} and POST data {form_data}")
 
         # BUG-5 FIX: ensure session is available before dispatching plugins
         if not self.session:
@@ -271,7 +300,7 @@ class AsyncScanner:
             return
 
         tasks: List[asyncio.Task[List[Vulnerability]]] = [
-            asyncio.create_task(plugin.check(self.session, url, html, headers, params))
+            asyncio.create_task(plugin.check(self.session, url, html, headers, params=params, data=form_data))
             for plugin in self.plugins
         ]
 
@@ -283,4 +312,7 @@ class AsyncScanner:
                 self.vulnerabilities.extend(r)
 
         # Track visited endpoint
-        self.endpoints_found.append({"url": url, "method": "GET", "params": list(params.keys())})
+        if form_data:
+            self.endpoints_found.append({"url": url, "method": "POST", "params": list(form_data.keys())})
+        else:
+            self.endpoints_found.append({"url": url, "method": "GET", "params": list(params.keys())})

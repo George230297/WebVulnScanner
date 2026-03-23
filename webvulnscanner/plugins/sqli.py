@@ -39,29 +39,45 @@ class SQLiCheck(BaseCheck):
         html: str = "",
         headers: Optional[Dict[str, str]] = None,
         params: Optional[Dict[str, Any]] = None,
+        data: Optional[Dict[str, Any]] = None,
     ) -> List[Vulnerability]:
         vulns: List[Vulnerability] = []
-        if not params:
-            return vulns
+        from webvulnscanner.utils.encoder import encoder
 
-        for k in params:
-            from webvulnscanner.utils.encoder import encoder
-            p_mod = params.copy()
-            p_mod[k] = encoder.apply_random_mutation("1'", context="sqli")
+        if params:
+            for k in params:
+                p_mod = params.copy()
+                p_mod[k] = encoder.apply_random_mutation("1'", context="sqli")
 
-            resp = await send_probe(url, method="GET", params=p_mod)
+                resp = await send_probe(url, method="GET", params=p_mod)
+                if resp.status != 0:
+                    text = resp.text.lower()
+                    found_error = next((err for err in self.sql_errors if err in text), None)
+                    if found_error:
+                        vulns.append(Vulnerability(
+                            type="SQLi Error-Based",
+                            url=str(url),
+                            param=k,
+                            evidence=f"DB Error triggered: {found_error}",
+                            severity="Critical"
+                        ))
 
-            # status == 0 means network failure; skip
-            if resp.status != 0:
-                text = resp.text.lower()
-                found_error = next((err for err in self.sql_errors if err in text), None)
-                if found_error:
-                    vulns.append(Vulnerability(
-                        type="SQLi Error-Based",
-                        url=str(url),
-                        param=k,
-                        evidence=f"DB Error triggered: {found_error}",
-                        severity="Critical"
-                    ))
+        if data:
+            for k in data:
+                d_mod = data.copy()
+                d_mod[k] = encoder.apply_random_mutation("1'", context="sqli")
+
+                resp = await send_probe(url, method="POST", data=d_mod)
+                if resp.status != 0:
+                    text = resp.text.lower()
+                    found_error = next((err for err in self.sql_errors if err in text), None)
+                    if found_error:
+                        vulns.append(Vulnerability(
+                            type="SQLi POST Error-Based",
+                            url=str(url),
+                            param=k,
+                            evidence=f"DB POST Error: {found_error}",
+                            severity="Critical"
+                        ))
 
         return vulns
