@@ -68,6 +68,8 @@ Opciones disponibles:
 
 - `--url`: URL objetivo (requerido).
 - `--checks`: Lista de chequeos específicos (ej: `xss sqli`). Por defecto ejecuta todos.
+- `--auth-jwt`: Inyectar token JWT estático para Stateful Scanning en APIs y SPAs.
+- `--auth-cookie`: Inyectar Cabecera de Cookie cruda para ataques autenticados.
 - `--max-pages`: Límite de páginas a crawlear (default: 50).
 - `--workers`: Número de hilos/conexiones concurrentes (default: 20).
 - `--report`: Nombre del archivo de reporte (default: `report.json`).
@@ -90,18 +92,22 @@ Para impedir baneos de IP por volumen L7, el motor soporta redes proxy SOCKS4/5/
 | `--max-pages N`     | Número máximo de páginas a visitar durante el crawling.       |    No     |     `50`      |
 | `--workers N`       | Número de hilos/conexiones concurrentes.                      |    No     |     `20`      |
 | `--report FILE`     | Nombre y ruta del archivo de reporte a generar.               |    No     | `report.json` |
+| `--auth-jwt TOKEN`  | Token JWT estático puro para escaneo con estado persistente.  |    No     |       -       |
+| `--auth-cookie C`   | Volcado en crudo del encabezado Cookie para inicio de sesión. |    No     |       -       |
 
 ## 🛡️ Capacidades de Detección
 
 La versión actual incluye los siguientes plugins integrados:
 
 1. **Reflected XSS**: Detección de Cross-Site Scripting reflejado mediante inyección y parseo.
-2. **SQL Injection (Error-Based)**: Inyección y fuga SQL basada en errores base.
-3. **Secrets Leak**: Búsqueda SAST de claves de AWS (`AKIA*`), Tokens, PEM privadas.
-4. **Security Headers**: Auditoría analítica de cabeceras de respuesta (HSTS, CSP).
-5. **Sensitive Files**: Descubrimiento de puntos expuestos. Combate falsos Soft 404s en implementaciones SPA.
-6. **CSRF**: Inyección y evasión paralela de tokens *authenticity*.
-7. **SSRF Candidates**: Forja de peticiones a nivel del lado del servidor.
+2. **DOM-Based XSS**: Escaneo dinámico interceptando diálogos JS mediante navegadores Playwright Fantasmas (NUEVO).
+3. **SQL Injection (Error-Based)**: Inyección y fuga SQL basada en errores base.
+4. **Blind SQL Injection (Time-Based)**: Detección asíncrona ciega mediante cálculo matemático de latencias sobre Sleep Payloads (NUEVO).
+5. **Secrets Leak**: Búsqueda SAST de claves de AWS (`AKIA*`), Tokens, PEM privadas.
+6. **Security Headers**: Auditoría analítica de cabeceras de respuesta (HSTS, CSP).
+7. **Sensitive Files**: Descubrimiento de puntos expuestos. Combate falsos Soft 404s en implementaciones SPA.
+8. **CSRF**: Inyección y evasión paralela de tokens *authenticity*.
+9. **SSRF Candidates**: Forja de peticiones a nivel del lado del servidor.
 
 ## 📈 Tubería de Ejecución y Ecosistema (Core Engine V2)
 

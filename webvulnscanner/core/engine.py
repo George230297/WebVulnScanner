@@ -10,6 +10,8 @@ from typing import Set, List, Dict, Optional, Any, Tuple
 from webvulnscanner.config import ScanConfig, DEFAULT_HEADERS, SENSITIVE_FILES, REGEX_ENDPOINTS
 from webvulnscanner.models.vulnerability import Vulnerability
 from webvulnscanner.plugins import ALL_PLUGINS
+from webvulnscanner.core.session_manager import SessionManager
+from webvulnscanner.core.stealth import StealthManager
 
 logger = logging.getLogger("WebVulnScanner")
 
