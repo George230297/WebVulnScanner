@@ -62,7 +62,6 @@ async def async_request(url: str, method: str = "GET", payload: Optional[Dict[st
     Returns:
         ProbeResponse con el estatus HTTP, texto de respuesta y cabeceras.
     """
-    global _session, _semaphore
     
     # Auto-inicialización segura en caso de que un módulo llame esto directamente antes de init_network()
     if _session is None or _semaphore is None:
@@ -80,9 +79,12 @@ async def async_request(url: str, method: str = "GET", payload: Optional[Dict[st
             # de acuerdo al formato de Requests adaptado.
             async with _session.request(method, url, json=payload, params=params, **kwargs) as response: # type: ignore
                 try:
-                    text = await response.text()
-                except UnicodeDecodeError:
-                    text = await response.text(errors='replace')
+                    # Security Limit: Max 5MB per Request to prevent OOM DOS
+                    raw_bytes = await response.content.read(5 * 1024 * 1024)
+                    text = raw_bytes.decode(response.get_encoding() or 'utf-8', errors='replace')
+                except Exception as e:
+                    logger.debug(f"[NETWORK] Falla descodificando respuesta de {url}: {e}")
+                    text = ""
                 
                 return ProbeResponse(
                     status=response.status,

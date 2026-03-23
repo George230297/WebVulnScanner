@@ -3,7 +3,6 @@ import logging
 import re
 from typing import Dict, Optional, Callable, Awaitable, Any
 from bs4 import BeautifulSoup
-import aiohttp
 
 logger = logging.getLogger(__name__)
 

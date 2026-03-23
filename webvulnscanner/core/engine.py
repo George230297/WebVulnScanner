@@ -10,8 +10,6 @@ from typing import Set, List, Dict, Optional, Any, Tuple
 from webvulnscanner.config import ScanConfig, DEFAULT_HEADERS, SENSITIVE_FILES, REGEX_ENDPOINTS
 from webvulnscanner.models.vulnerability import Vulnerability
 from webvulnscanner.plugins import ALL_PLUGINS
-from webvulnscanner.core.session_manager import SessionManager
-from webvulnscanner.core.stealth import StealthManager
 
 logger = logging.getLogger("WebVulnScanner")
 
@@ -28,15 +26,14 @@ class AsyncScanner:
         self.session: Optional[aiohttp.ClientSession] = None
         self.semaphore: asyncio.Semaphore = asyncio.Semaphore(config.concurrency)
         self.base_domain: str = urlparse(config.start_url).netloc
-        self.session_manager = SessionManager(base_domain=self.base_domain)
         
-        # Stateful Scanning Binding
+        # Stateful Scanning Binding via Global Singleton
+        from webvulnscanner.core.session_manager import global_session
         if self.config.auth_jwt:
-            self.session_manager.set_jwt(self.config.auth_jwt)
+            global_session.set_jwt(self.config.auth_jwt)
         if self.config.auth_cookie:
-            self.session_manager.load_raw_cookie(self.config.auth_cookie)
+            global_session.load_raw_cookie(self.config.auth_cookie)
             
-        self.stealth_manager = StealthManager()
         # Initialize plugins dynamically via the plugin loader
         self.plugins = [plugin_cls() for plugin_cls in ALL_PLUGINS]
 
@@ -157,8 +154,8 @@ class AsyncScanner:
             _, status, _, _ = await self.fetch(self.config.start_url, params={'q': '<script>alert(1)</script>'})
             if status == 403:
                 logger.warning("[!] ADVERTENCIA: Posible WAF detectado (403 Forbidden).")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"[WAF] Validación fallida por error transitorio: {e}")
 
     async def check_sensitive_files(self) -> None:
         base_url = f"{urlparse(self.config.start_url).scheme}://{self.base_domain}"
@@ -295,8 +292,10 @@ class AsyncScanner:
                 if urlparse(full_url).netloc == self.base_domain and full_url not in self.visited:
                     try:
                         queue.put_nowait(full_url)
-                    except Exception:
+                    except asyncio.QueueFull:
                         pass
+                    except Exception as e:
+                        logger.error(f"[JS_PARSER] Falla encolando ruta {full_url}: {e}")
 
     async def run_plugins(self, url: str, html: str, headers: Dict[str, str], form_data: Optional[Dict[str, Any]] = None) -> None:
         parsed = urlparse(url)

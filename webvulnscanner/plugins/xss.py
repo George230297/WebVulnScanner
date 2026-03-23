@@ -105,7 +105,8 @@ class XSSCheck(BaseCheck):
                                 category="xss"
                             ))
                             break
-            except Exception:
-                pass
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).debug(f"[DOM-XSS] Error interno renderizando {dom_test_url}: {e}")
 
         return vulns

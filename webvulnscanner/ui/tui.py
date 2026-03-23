@@ -2,7 +2,6 @@ import curses
 import threading
 import asyncio
 import traceback
-from time import sleep
 
 from webvulnscanner.config import ScanConfig
 from webvulnscanner.core.engine import AsyncScanner

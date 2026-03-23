@@ -1,0 +1,11 @@
+﻿webvulnscanner/core\network.py:65:5: F824 `global _session` is unused: name is never assigned in scope
+webvulnscanner/core\network.py:65:5: F824 `global _semaphore` is unused: name is never assigned in scope
+webvulnscanner/core\session_manager.py:6:1: F401 'aiohttp' imported but unused
+webvulnscanner/core\threat_intel.py:4:1: F401 'typing.Optional' imported but unused
+webvulnscanner/plugins\__init__.py:17:5: F824 `global ALL_PLUGINS` is unused: name is never assigned in scope
+webvulnscanner/ui\cli.py:3:1: F401 'json' imported but unused
+webvulnscanner/ui\cli.py:4:1: F401 'sys' imported but unused
+webvulnscanner/ui\tui.py:5:1: F401 'time.sleep' imported but unused
+webvulnscanner/utils\__init__.py:1:1: F401 '.decorators.audit_log' imported but unused
+webvulnscanner/utils\__init__.py:1:1: F401 '.decorators.retry_network' imported but unused
+webvulnscanner/utils\soft_404_profiler.py:5:1: F401 'typing.Any' imported but unused

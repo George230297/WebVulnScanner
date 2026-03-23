@@ -2,7 +2,7 @@ import hashlib
 import random
 import string
 import logging
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Optional, Union
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="requests")
 warnings.filterwarnings("ignore", message=".*urllib3.*chardet.*")

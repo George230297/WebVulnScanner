@@ -14,7 +14,6 @@ def load_plugins() -> None:
     Deduplicates by class identity to avoid double-registration when a
     plugin module re-imports classes from sibling modules.
     """
-    global ALL_PLUGINS
     ALL_PLUGINS.clear()
 
     seen_ids: set[int] = set()

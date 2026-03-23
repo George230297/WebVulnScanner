@@ -1,7 +1,5 @@
 import argparse
 import asyncio
-import json
-import sys
 from webvulnscanner.config import ScanConfig
 from webvulnscanner.core.engine import AsyncScanner
 from webvulnscanner.reporting.formatter import ReportGenerator
