@@ -75,4 +75,37 @@ class XSSCheck(BaseCheck):
                         ))
                         break
 
+        # Advanced DAST: Heurística Anti-DOM XSS (Headless Browser)
+        # Desplegamos un navegador real fantasma solo para el parámetro GET
+        # con un payload de diagnóstico rápido y barato para no colapsar la RAM.
+        if params:
+            try:
+                from webvulnscanner.core.browser import DynamicRenderer
+                import urllib.parse
+                
+                for k in params:
+                    dom_payload = '"><script>alert("DOM-XSS")</script>'
+                    p_mod = params.copy()
+                    p_mod[k] = dom_payload
+                    
+                    parsed_url = urllib.parse.urlparse(url)
+                    query = urllib.parse.urlencode(p_mod)
+                    dom_test_url = parsed_url._replace(query=query).geturl()
+
+                    # Iniciar navegador ligero solo por 5s
+                    async with DynamicRenderer(headless=True, timeout_ms=5000) as renderer:
+                        html, alerts = await renderer.render_dom(dom_test_url)
+                        if alerts:
+                            vulns.append(Vulnerability(
+                                type="DOM-Based XSS",
+                                url=str(url),
+                                param=k,
+                                evidence=f"JavaScript execution confirmed! Alert Dialog Intercepted: {alerts[0]}",
+                                severity="High",
+                                category="xss"
+                            ))
+                            break
+            except Exception:
+                pass
+
         return vulns

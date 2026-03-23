@@ -108,7 +108,7 @@ class SessionManager:
             visible_part = extracted_token[:6] + "..." if len(extracted_token) > 10 else "***"
             logger.info(f"[SESSION] Token CSRF '{token_name}' extraído dinámicamente y guardado: {visible_part}")
         else:
-            logger.warning(f"[SESSION] Token CSRF '{token_name}' no hallado en HTML. Asumiendo modo API/SPA y continuando ejecución de plugins...")
+            logger.debug(f"[SESSION] Token CSRF '{token_name}' no hallado. Asumiendo modo API/SPA y continuando...")
             
         return self._csrf_token
 

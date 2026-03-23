@@ -45,3 +45,5 @@ class ScanConfig:
     authorized: bool = False
     dir_bruteforce: bool = False
     wordlist: Optional[str] = None
+    auth_jwt: Optional[str] = None
+    auth_cookie: Optional[str] = None

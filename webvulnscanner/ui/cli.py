@@ -13,15 +13,21 @@ def main() -> None:
     parser.add_argument('--max-pages', type=int, default=50, help='Número máximo de páginas a visitar durante el crawling')
     parser.add_argument('--workers', type=int, default=20, help='Número de hilos/conexiones concurrentes')
     parser.add_argument('--report', default='report.json', help='Nombre y ruta del archivo de reporte a generar')
+    parser.add_argument('--auth-jwt', help='Token JWT estático puro para escaneo con estado (Stateful Scanning)')
+    parser.add_argument('--auth-cookie', help='Volcado en crudo del encabezado Cookie para inicio de sesión pasivo')
     args = parser.parse_args()
     
     print(f"[*] Iniciando escaneo asíncrono a {args.url}")
+    if args.auth_jwt or args.auth_cookie:
+        print(f"[*] Modo Autenticado Activado (Stateful Scanning)")
     
     config = ScanConfig(
         start_url=args.url if args.url.startswith('http') else f'https://{args.url}',
         max_pages=args.max_pages,
         concurrency=args.workers,
-        checks=args.checks
+        checks=args.checks,
+        auth_jwt=args.auth_jwt,
+        auth_cookie=args.auth_cookie
     )
     
     scanner = AsyncScanner(config)

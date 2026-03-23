@@ -26,7 +26,15 @@ class AsyncScanner:
         self.session: Optional[aiohttp.ClientSession] = None
         self.semaphore: asyncio.Semaphore = asyncio.Semaphore(config.concurrency)
         self.base_domain: str = urlparse(config.start_url).netloc
-
+        self.session_manager = SessionManager(base_domain=self.base_domain)
+        
+        # Stateful Scanning Binding
+        if self.config.auth_jwt:
+            self.session_manager.set_jwt(self.config.auth_jwt)
+        if self.config.auth_cookie:
+            self.session_manager.load_raw_cookie(self.config.auth_cookie)
+            
+        self.stealth_manager = StealthManager()
         # Initialize plugins dynamically via the plugin loader
         self.plugins = [plugin_cls() for plugin_cls in ALL_PLUGINS]
 
@@ -291,6 +299,20 @@ class AsyncScanner:
     async def run_plugins(self, url: str, html: str, headers: Dict[str, str], form_data: Optional[Dict[str, Any]] = None) -> None:
         parsed = urlparse(url)
         params: Dict[str, Any] = dict(parse_qsl(parsed.query))
+
+        # Advanced DAST: Heurística de Blind Parameter Fuzzing
+        # Si un endpoint (ej. API REST /rest/products/search extraído de un JS) no expuso 
+        # sus llaves, inyectamos campos genéricos altamente vulnerables para forzar a 
+        # los módulos XSS/SQLi a probar suerte (Parameter Guessing).
+        if not params and not form_data:
+            url_lower = url.lower()
+            if 'login' in url_lower or 'auth' in url_lower:
+                form_data = {'email': 'test@test.com', 'password': 'test', 'username': 'admin'}
+            elif 'search' in url_lower or 'query' in url_lower or 'find' in url_lower:
+                params = {'q': 'test', 'search': 'test', 'query': 'test'}
+            else:
+                # Fallback base genérico para cualquier otro endpoint
+                params = {'id': '1', 'q': 'test', 'page': '1', 'url': 'http://127.0.0.1'}
 
         logger.debug(f"Running plugins for {url} with GET params {params} and POST data {form_data}")
 

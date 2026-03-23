@@ -87,35 +87,46 @@ class DynamicRenderer:
         else:
             await route.abort()
 
-    async def render_dom(self, url: str) -> Optional[str]:
+    async def render_dom(self, url: str) -> tuple[str, list[str]]:
         """
-        Navega a la URL, espera `networkidle` (SPA cargada y peticiones inactivadas),
-        y extrae el contenido DOM final.
+        Visita la URL, espera a que la red esté silenciosa y extrae el DOM renderizado,
+        junto con cualquier alerta (dialog) bloqueante que haya sido lanzada (para DOM XSS).
         """
-        if not self.page:
-            raise RuntimeError("El navegador del DynamicRenderer no se inicializó correctamente.")
+        if not self.browser or not self.page:
+            return "", []
+
+        alerts_fired = []
+        
+        # DOM XSS Interceptor
+        async def handle_dialog(dialog):
+            logger.warning(f"[DOM XSS] Diálogo JS interceptado en {url}: {dialog.message}")
+            alerts_fired.append(dialog.message)
+            await dialog.accept()
+            
+        self.page.on("dialog", handle_dialog)
 
         try:
             # wait_until='networkidle' asegura esperar a los componentes dinámicos como React useEffect()
-            # el timeout protege contra cuelgues eternos por un solo script infinito de JS.
-            await self.page.goto(url, wait_until="networkidle", timeout=self.timeout_ms)
-            
-            # Obtener el html final parseado
-            return await self.page.content()
-
+            await self.page.goto(url, wait_until='networkidle', timeout=self.timeout_ms)
+            await asyncio.sleep(2)
+            html = await self.page.content()
+            return html, alerts_fired
         except PlaywrightError as e:
-            # Es habitual que falte una conexión de tracking minoritaria, dando un error de Timeout,
-            # pero la página general ya ha cargado bien. Intentamos recuperar el contenido renderizado de todas formas.
-            logger.warning(f"[BROWSER] Playwright Timeout/Error parcial navegando a {url}: {e}")
+            logger.warning(f"[BROWSER] Timeout/Error renderizando {url}: {e}")
             try:
-                # Recuperar contenido en su estado actual, parcial o total.
-                return await self.page.content()
-            except Exception as backup_error:
-                logger.debug(f"[BROWSER] Falló el fallback de contenido: {backup_error}")
-                return None
+                html = await self.page.content()
+                return html, alerts_fired
+            except Exception:
+                return "", alerts_fired
         except Exception as e:
             logger.error(f"[BROWSER] Excepción general renderizando {url}: {e}")
-            return None
+            return "", alerts_fired
+        finally:
+            if self.page:
+                try:
+                    self.page.remove_listener("dialog", handle_dialog)
+                except Exception:
+                    pass
 
 async def render_dynamic_page(url: str, headless: bool = True, timeout_seconds: int = 15) -> Optional[str]:
     """
@@ -125,7 +136,7 @@ async def render_dynamic_page(url: str, headless: bool = True, timeout_seconds: 
     timeout_ms = timeout_seconds * 1000
     
     async with DynamicRenderer(headless=headless, timeout_ms=timeout_ms) as renderer:
-        html_content = await renderer.render_dom(url)
+        html_content, alerts = await renderer.render_dom(url)
         return html_content
 
 async def solve_cloudflare_challenge(url: str, headless: bool = True, timeout_seconds: int = 25) -> Optional[dict]:
