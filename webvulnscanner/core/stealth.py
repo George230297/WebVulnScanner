@@ -116,6 +116,11 @@ class StealthManager:
             
             kwargs['headers'] = headers
 
+        # Chunked Transfer Evasion for POST request bodies
+        from webvulnscanner.utils.encoder import encoder
+        if encoder.level >= 2 and kwargs.get('method', 'GET').upper() in ('POST', 'PUT', 'PATCH'):
+            kwargs['chunked_evasion'] = True
+
         # Selección de proxy inicial dinámico
         current_proxy = self.get_random_proxy()
         if current_proxy:

@@ -37,6 +37,9 @@ class AsyncScanner:
         # Initialize plugins dynamically via the plugin loader
         self.plugins = [plugin_cls() for plugin_cls in ALL_PLUGINS]
 
+        from webvulnscanner.utils.encoder import encoder
+        encoder.level = getattr(self.config, 'evasion_level', 0)
+
         # SSL context — always use the default validated context
         self.ssl_context: ssl.SSLContext = ssl.create_default_context()
 

@@ -7,7 +7,9 @@ class WafEncoder:
     Motor de mutación y ofuscación de payloads (Polymorphism Engine) 
     para evadir detecciones basadas en firmas y expresiones regulares (Regex) de WAFs.
     """
-    
+    def __init__(self):
+        self.level = 0
+
     @staticmethod
     def double_url_encode(payload: str) -> str:
         """
@@ -50,12 +52,14 @@ class WafEncoder:
         """
         return ''.join(f'\\u{ord(c):04x}' for c in payload)
         
-    @staticmethod
-    def apply_random_mutation(payload: str, context: str = "general") -> str:
+    def apply_random_mutation(self, payload: str, context: str = "general") -> str:
         """
-        Aplica una mutación estocástica. Para contextos de red que usan JSON nativo
-        o form-urlencoded, evitamos inyectar URL-Encoding ciego que rompería la deserialización del backend.
+        Aplica una mutación estocástica basándose en el nivel configurado.
+        Si la evasión es 0, no contamina el payload original.
         """
+        if self.level == 0:
+            return payload
+
         import random
         if context == "sqli":
             mutations = [WafEncoder.sqli_tamper, lambda x: x]

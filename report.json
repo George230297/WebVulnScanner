@@ -1,12 +1,18 @@
 {
   "meta": {
-    "target": "http://127.0.0.1:3000",
-    "scanner": "WebVulnScanner v2_modular",
-    "timestamp": "2026-03-23T07:37:19.529182+00:00"
+    "target": "127.0.0.1",
+    "scanner": "WebVulnScanner v2_modular (Web & Network)",
+    "timestamp": "2026-04-26T16:46:37.526175+00:00"
   },
   "crawl": {
     "pages_count": 0,
     "js_files_scanned": []
+  },
+  "network": {
+    "ports_scanned_count": 3,
+    "open_ports": [
+      80
+    ]
   },
   "checks": {}
 }

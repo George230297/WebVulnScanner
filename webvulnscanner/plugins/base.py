@@ -39,3 +39,25 @@ class BaseCheck(ABC):
             List of found Vulnerability objects.
         """
         return []
+
+class BaseNetworkPlugin(ABC):
+    """Abstract Base Class for all network vulnerability checks."""
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """Unique human-readable name for this check."""
+        ...
+
+    @abstractmethod
+    async def check_service(self, ip: str, port: int) -> List[Vulnerability]:
+        """Main check method for network services.
+
+        Args:
+            ip: Target IP address.
+            port: Open port detected.
+
+        Returns:
+            List of found Vulnerability objects.
+        """
+        return []

@@ -14,6 +14,7 @@ class ScannerState:
         self.crawl = True
         self.max_pages = 100
         self.workers = 20
+        self.evasion = 0
         self.report = None
         self.report_path = 'webvuln_report_tui.json'
         self.log_lines = []
@@ -38,7 +39,8 @@ def run_scan_wrapper(st):
             start_url=st.target if st.target.startswith('http') else f'https://{st.target}',
             max_pages=st.max_pages,
             concurrency=st.workers,
-            checks=chk_list
+            checks=chk_list,
+            evasion_level=st.evasion
         )
         
         scanner = AsyncScanner(config)
@@ -95,11 +97,11 @@ def draw_menu(stdscr):
             stdscr.addstr(6 + i, 6, f'{mk} {kname}')
 
         next_y = 6 + len(checks_list) + 2
-        stdscr.addstr(next_y, 4, f'Max Pages: {state.max_pages} | Concurrency: {state.workers}')
+        stdscr.addstr(next_y, 4, f'Max Pages: {state.max_pages} | Concurrency: {state.workers} | Evasion Lvl: {state.evasion}')
 
         # Controles
         stdscr.addstr(next_y+3, 2, 'Controles:', curses.A_UNDERLINE)
-        stdscr.addstr(next_y+4, 4, '[E] Editar URL   [R] RUN SCAN   [Q] Salir')
+        stdscr.addstr(next_y+4, 4, '[E] Editar URL   [V] Alternar Evasión   [R] RUN SCAN   [Q] Salir')
         
         # Logs
         stdscr.addstr(next_y+6, 2, 'Logs:')
@@ -141,6 +143,9 @@ def draw_menu(stdscr):
                 t = threading.Thread(target=run_scan_wrapper, args=(state,))
                 t.daemon = True
                 t.start()
+        elif ch in [ord('v'), ord('V')]:
+            state.evasion = (state.evasion + 1) % 3
+            state.log(f"Nivel de evasión cambiado a: {state.evasion}")
 
 def main():
     try:

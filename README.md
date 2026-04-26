@@ -9,15 +9,15 @@
 ![Playwright](https://img.shields.io/badge/Playwright-DOM_Rendering-ff69b4.svg)
 ![Tests](https://img.shields.io/badge/tests-101%20passed-brightgreen.svg)
 
-**Escáner de Vulnerabilidades Web Asíncrono y Modular**
+**Escáner de Vulnerabilidades Web y de Red Asíncrono y Modular**
 
-WebVulnScanner es una herramienta avanzada de auditoría de seguridad diseñada para profesionales de ciberseguridad, pentesters y administradores de sistemas. Su objetivo es identificar fallos de seguridad comunes en aplicaciones web de manera rápida y eficiente utilizando un motor asíncrono de alto rendimiento.
+WebVulnScanner es una herramienta avanzada de auditoría de seguridad diseñada para profesionales de ciberseguridad, pentesters y administradores de sistemas. Su objetivo es identificar fallos de seguridad comunes en aplicaciones web e infraestructura de red de manera rápida y eficiente utilizando motores asíncronos de alto rendimiento.
 
 ## 🚀 Características Principales
 
 - **Motor Asíncrono Absoluto**: Basado enteramente en `asyncio` y `aiohttp`, capaz de sostener y encolar cientos de peticiones sin agotar recursos.
 - **Renderizado Dinámico de SPAs (Cross-Platform Bypass)**: Integración nativa con `playwright` asíncrono. Soporte inteligente de conmutación de arquitectura: utiliza Chromium empotrado en Windows/Mac, o se engancha silenciosamente al binario nativo de penetración de Kali Linux (`/usr/bin/chromium`) para renderizar aplicaciones React, Vue o Angular de forma automatizada, optimizando recursos a nivel sistema operativo.
-- **Evasión de WAF (Stealth Mode) de Grado Militar**: Algoritmos avanzados de evasión L7 con rotación auto-sanable de Proxies (SOCKS/HTTP), Falsificación de Identidad (Spoofing de IPs internas), Fragmentación Acústica de tráfico HTTP Chunked, y mutación de Payloads polimórficos (`WafEncoder`). Incluye simulación humana (Math Jitter) automático anti-baneos permanentes.
+- **Evasión de WAF (Stealth Mode) de Grado Militar**: Algoritmos avanzados con rotación auto-sanable de Proxies, Falsificación de Identidad y simulación humana (Math Jitter). Integra un **Motor de Ofuscación Escalable** configurable en 3 niveles: (Nivel 0) Ataque directo, (Nivel 1) Mutación Polimórfica de Payloads vía `WafEncoder`, y (Nivel 2) Fragmentación Acústica de tráfico HTTP Chunked en POST.
 - **Gestión Avanzada de Sesiones**: Administración global *Thread-Safe* con auto-refresh de tokens JWT, extracción dinámica de tokens CSRF y cookies persistentes desde áreas privadas de las web-apps.
 - **Peritaje Threat Intelligence (CTI)**: Enriquecimiento automatizado en fase de post-procesamiento. Localiza vulnerabilidades subyacentes (CVEs) de tecnologías detectadas interactuando con bases públicas desde un motor local de concurrencia y caché.
 - **Análisis Híbrido Avanzado (DAST/SAST)**: Motor profundo de Inyección Dinámica (DAST) capaz de extraer Formularios DOM, adivinar parámetros en APIs ocultas (Blind Fuzzing) e inyectar *Payloads* destructivos sobre cuerpos POST y JSON de Single Page Applications (SPAs). Detecta inyecciones invisibles como **SQLi Ciega (Time-Based)** y **DOM-Based XSS** mediante el motor de renderizado. Complementado con análisis estático (SAST) de fugas de secretos JS.
@@ -60,19 +60,27 @@ playwright install chromium
 ### Interfaz de Línea de Comandos (CLI)
 
 ```bash
-# Auditar un objetivo limitando simultaneidad para evitar ban, ejecutando Stealth:
-python run_scanner.py --url https://ejemplo.com --workers 50
+# Auditar un objetivo web limitando simultaneidad para evitar ban, activando Ofuscación WAF Avanzada:
+python run_scanner.py --url https://ejemplo.com --workers 50 --evasion 2
+
+# Auditar la infraestructura de red de un objetivo (escaneo de puertos y servicios):
+python run_scanner.py --ip 192.168.1.1 --ports 21,22,80,443
 ```
 
 Opciones disponibles:
 
-- `--url`: URL objetivo (requerido).
+- `--url`: URL objetivo (mutuamente excluyente con `--ip`).
+- `--ip`: Dirección IP objetivo para escaneo de infraestructura de red.
+- `--ports`: Lista de puertos separados por comas (ej: 21,22,80). Si no se provee, escanea por defecto.
 - `--checks`: Lista de chequeos específicos (ej: `xss sqli`). Por defecto ejecuta todos.
 - `--auth-jwt`: Inyectar token JWT estático para Stateful Scanning en APIs y SPAs.
 - `--auth-cookie`: Inyectar Cabecera de Cookie cruda para ataques autenticados.
 - `--max-pages`: Límite de páginas a crawlear (default: 50).
 - `--workers`: Número de hilos/conexiones concurrentes (default: 20).
+- `--evasion`: Nivel de ofuscación de código frente a WAF (0: Off, 1: Mutación, 2: Chunked L7).
 - `--report`: Nombre del archivo de reporte (default: `report.json`).
+
+*(Nota: En la Interfaz Gráfica de Consola - TUI, puedes alternar el nivel de ofuscación en tiempo real utilizando la tecla `[V]`)*
 
 ### 🕶️ Configuración de Proxies (Auto-Evación y Curación)
 Para impedir baneos de IP por volumen L7, el motor soporta redes proxy SOCKS4/5/HTTP. Simplemente crea un archivo **`proxies.txt`** en la raíz del proyecto. El motor lo detectará automáticamente y ejecutará una rotación biológica (expulsando el proxy de la cola si el WAF arroja 403 o 429):
@@ -87,13 +95,16 @@ Para impedir baneos de IP por volumen L7, el motor soporta redes proxy SOCKS4/5/
 | Argumento           | Descripción                                                   | Requerido |    Default    |
 | :------------------ | :------------------------------------------------------------ | :-------: | :-----------: |
 | `-h`, `--help`      | Muestra el mensaje de ayuda y termina.                        |    No     |       -       |
-| `--url URL`         | URL objetivo para iniciar el escaneo.                         |  **Sí**   |       -       |
+| `--url URL`         | URL objetivo para iniciar el escaneo web.                     |  **Sí***  |       -       |
+| `--ip IP`           | IP objetivo para iniciar escaneo de red (*Excluye a --url).   |  **Sí***  |       -       |
+| `--ports P1,P2`     | Puertos a escanear (solo aplica con `--ip`).                  |    No     | `Top 1024`    |
 | `--checks [CHECKS]` | Lista de chequeos específicos a ejecutar (ej: `xss`, `sqli`). |    No     |     `all`     |
 | `--max-pages N`     | Número máximo de páginas a visitar durante el crawling.       |    No     |     `50`      |
 | `--workers N`       | Número de hilos/conexiones concurrentes.                      |    No     |     `20`      |
 | `--report FILE`     | Nombre y ruta del archivo de reporte a generar.               |    No     | `report.json` |
 | `--auth-jwt TOKEN`  | Token JWT estático puro para escaneo con estado persistente.  |    No     |       -       |
 | `--auth-cookie C`   | Volcado en crudo del encabezado Cookie para inicio de sesión. |    No     |       -       |
+| `--evasion N`       | Nivel de evasión WAF y ofuscación de código (0, 1 o 2).       |    No     |      `0`      |
 
 ## 🛡️ Capacidades de Detección
 
@@ -108,6 +119,7 @@ La versión actual incluye los siguientes plugins integrados:
 7. **Sensitive Files**: Descubrimiento de puntos expuestos. Combate falsos Soft 404s en implementaciones SPA.
 8. **CSRF**: Inyección y evasión paralela de tokens *authenticity*.
 9. **SSRF Candidates**: Forja de peticiones a nivel del lado del servidor.
+10. **Infraestructura de Red (NUEVO)**: Escaneo asíncrono y sigiloso de puertos TCP, evaluando vulnerabilidades en protocolos subyacentes (ej: FTP Anónimo).
 
 ## 📈 Tubería de Ejecución y Ecosistema (Core Engine V2)
 
@@ -179,17 +191,18 @@ classDiagram
         +sqli_tamper()
     }
 
-    CLI --> Engine : Parse Argumentos e inyecta Config
+    CLI --> Engine : Parse Argumentos e inyecta Config (--evasion)
     Engine --> SessionManager : Configura Headers y Autenticación Global
+    Engine --> WafEncoder : Configura Nivel de Ofuscación Escalable
     Engine --> SensitiveFileValidator : Nivel 1 - Filtro Heurístico DOM
     Engine --> Soft404Profiler : Nivel 2 - Calibración Temprana MD5
     Engine --> StealthManager : Delega Peticiones Ofensivas al Interceptor
-    StealthManager --> Network : Envuelve a la capa asyncio nativa  
+    StealthManager --> Network : Envuelve Asyncio e inyecta Fragmentación Chunked
     StealthManager ..> DynamicRenderer : Intercepta 403s y usa Solver Antibot
     Engine --> DynamicRenderer : Reanima DOM con Playwright Stealth
     Engine "1" *-- "*" BaseCheck : Carga Interfaces dinámicamente (Type Strategy)
     BaseCheck --> SessionManager : El Plugin asimila y detecta extractores
-    BaseCheck ..> WafEncoder : Delega Mutación Polimórfica de Payloads
+    BaseCheck ..> WafEncoder : Solicita Mutación Polimórfica Condicional
     Engine --> ThreatIntelEnricher : Intercambio de Data CTI en Post-Procesamiento (CVEs)
 ```
 

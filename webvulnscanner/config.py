@@ -37,7 +37,9 @@ SECURITY_HEADERS = {
 
 @dataclass
 class ScanConfig:
-    start_url: str
+    start_url: str = ""
+    ip_target: Optional[str] = None
+    ports: List[int] = field(default_factory=lambda: list(range(1, 1025)))
     max_pages: int = 100
     concurrency: int = 20
     checks: List[str] = field(default_factory=list)
@@ -47,3 +49,4 @@ class ScanConfig:
     wordlist: Optional[str] = None
     auth_jwt: Optional[str] = None
     auth_cookie: Optional[str] = None
+    evasion_level: int = 0
